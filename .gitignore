@@ -1,0 +1,88 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# Xcode / iOS
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+*.app
+*.appex
+timeline.xctimeline
+playground.xcworkspace/
+*.playground/
+
+# Swift Package Manager (keep Package.resolved for reproducible app builds)
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+.swiftpm/configuration/registries.json
+
+# CocoaPods / Carthage (not in MVP, but common on iOS projects)
+Pods/
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code signing & provisioning (never commit)
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.cer
+*.certSigningRequest
+
+# Secrets & local config
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+credentials.json
+*.pem
+*.key
+AuthKey_*.p8
+
+# Logs, coverage, test output
+*.log
+*.xcresult
+coverage/
+TestResults/
+
+# IDE / editor (keep .cursor/ and .agents/ — project rules and skills are committed)
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# Cursor local/cache (if generated)
+.cursor/**/*.log
+.cursor/cache/
+
+# Temporary / scratch files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# OS / tool artifacts
+Thumbs.db

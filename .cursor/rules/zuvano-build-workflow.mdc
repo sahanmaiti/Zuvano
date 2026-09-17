@@ -1,0 +1,122 @@
+---
+description: Zuvano's daily implementation and build-in-public workflow. Keeps implementation aligned with frozen product/architecture/UI documents and requires a factual daily build log after each completed day.
+alwaysApply: true
+---
+
+# Zuvano Build Workflow
+
+## Frozen Source of Truth
+
+Before implementing or changing behavior, consult:
+
+- `docs/00_PROJECT_CONTEXT.md`
+- `docs/01_PRODUCT_SPEC.md`
+- `docs/02_SYSTEM_ARCHITECTURE.md`
+- `docs/03_DATA_MODEL.md`
+- `docs/04_FEATURE_SPEC.md`
+- `docs/05_TECHNICAL_DECISIONS.md`
+- `docs/UI_UX_INSTRUCTIONS.md`
+
+These documents are frozen implementation contracts.
+
+Do not silently change them to make implementation easier.
+
+If implementation reveals a contradiction:
+1. Stop.
+2. Explain the contradiction.
+3. Identify the affected requirement.
+4. Ask for an explicit decision before changing the contract.
+
+## Daily Workflow
+
+Work one roadmap day at a time.
+
+Before coding:
+1. Read the relevant roadmap section.
+2. Read the relevant source-of-truth documents.
+3. Inspect existing implementation.
+4. Identify the exact scope for the day.
+5. Do not implement future-day features unless required to unblock the current day.
+
+During coding:
+- Prefer native Apple frameworks.
+- Follow Swift 6 strict concurrency.
+- Follow SwiftUI + Observation architecture.
+- Follow `UI_UX_INSTRUCTIONS.md`.
+- Avoid unnecessary abstractions.
+- Avoid third-party dependencies.
+- Do not invent product behavior.
+- Keep user confirmation as the EventKit trust boundary.
+
+After coding:
+1. Build the project.
+2. Run relevant tests.
+3. Fix failures caused by today's work.
+4. Verify relevant UI states.
+5. Run the most relevant reviewer subagent when appropriate.
+6. Inspect the final diff.
+7. Record the actual work in `docs/build-log/DAY_<N>.md`.
+8. Prepare the LinkedIn and X build-in-public posts from the actual work.
+9. Record unfinished work honestly.
+
+## Completion Rule
+
+A feature is not "done" because code exists.
+
+A day's work is complete only when:
+- the relevant implementation exists,
+- the project builds,
+- relevant tests/checks pass,
+- the required user flow was verified,
+- known limitations are documented,
+- the daily build log is written.
+
+## Build Log Rules
+
+Daily logs are factual engineering records.
+
+Never:
+- invent completed work,
+- hide failures,
+- claim unverified behavior,
+- include private conversation content,
+- include API keys/tokens,
+- expose sensitive logs.
+
+Each log must include:
+- what was implemented,
+- files changed,
+- decisions,
+- tests,
+- verification,
+- problems,
+- fixes,
+- limitations,
+- next day,
+- LinkedIn post,
+- X post,
+- media suggestions.
+
+## Reviewer Roles
+
+Use:
+- `ios-design-reviewer` for UI/UX and accessibility review.
+- `verifier` for functional verification.
+- `security-reviewer` for security/privacy review.
+- `debugger` for actual failures and regressions.
+
+Reviewers should report before implementation changes unless explicitly asked to modify code.
+
+## Build-in-Public
+
+Every completed day should produce a public update.
+
+Posts must:
+- describe actual progress,
+- avoid hype that is unsupported by the work,
+- avoid private data,
+- avoid secrets,
+- show useful visual evidence where possible,
+- mention interesting technical/product challenges.
+
+The public log is a record of the build, not a substitute for engineering verification.
