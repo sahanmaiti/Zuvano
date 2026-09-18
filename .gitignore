@@ -73,6 +73,10 @@ TestResults/
 .vscode/
 !.vscode/extensions.json
 !.vscode/settings.json.example
+!.vscode/tasks.json
+
+# SourceKit-LSP / xcode-build-server (machine-local compile flags cache)
+.compile
 
 # Cursor local/cache (if generated)
 .cursor/**/*.log
@@ -86,3 +90,5 @@ temp/
 
 # OS / tool artifacts
 Thumbs.db
+
+Assets/
