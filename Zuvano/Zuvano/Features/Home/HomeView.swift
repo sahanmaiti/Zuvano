@@ -2,9 +2,9 @@ import PhotosUI
 import SwiftUI
 
 struct HomeView: View {
-    @Bindable var viewModel: HomeViewModel
-    @State private var selectedPhotoItem: PhotosPickerItem?
-    @Environment(\.scenePhase) private var scenePhase
+    @Binding var selectedPhotoItem: PhotosPickerItem?
+    let onPaste: (String) -> Void
+    let onEnterText: () -> Void
 
     var body: some View {
         ScrollView {
@@ -19,6 +19,7 @@ struct HomeView: View {
                 VStack(spacing: ZuvanoSpacing.actionStack) {
                     pasteButton
                     choosePhotoButton
+                    enterTextButton
                 }
 
                 shareHint
@@ -32,31 +33,18 @@ struct HomeView: View {
         .background(ZuvanoColors.contentBackground)
         .navigationTitle("Zuvano")
         .navigationBarTitleDisplayMode(.large)
-        .onAppear {
-            viewModel.refreshClipboardState()
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                viewModel.refreshClipboardState()
-            }
-        }
-        .onChange(of: selectedPhotoItem) { _, _ in
-            // Day 1: selection is stored locally only; pipeline wiring arrives on Day 2.
-        }
     }
 
+    /// Visible system `UIPasteControl` — required on iOS 16+ for authorized pasteboard access.
     private var pasteButton: some View {
-        Button {
-            viewModel.pasteTapped()
-        } label: {
-            Label("Paste", systemImage: "doc.on.clipboard")
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
+        ZuvanoPasteControl { text in
+            onPaste(text)
         }
-        .buttonStyle(.borderedProminent)
-        .disabled(!viewModel.clipboardHasText)
+        .frame(maxWidth: .infinity)
+        .frame(height: ZuvanoSpacing.homeActionButtonHeight)
+        .clipped()
         .accessibilityLabel("Paste")
-        .accessibilityHint(pasteAccessibilityHint)
+        .accessibilityHint("Paste copied conversation text. iOS may ask to allow paste from the other app.")
     }
 
     private var choosePhotoButton: some View {
@@ -65,13 +53,20 @@ struct HomeView: View {
             matching: .images,
             photoLibrary: .shared()
         ) {
-            Label("Choose Photo", systemImage: "photo.on.rectangle")
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
+            HomeActionButtonLabel(title: "Choose Photo", systemImage: "photo.on.rectangle")
         }
-        .buttonStyle(.bordered)
+        .homeBorderedActionButtonStyle()
         .accessibilityLabel("Choose Photo")
         .accessibilityHint("Select a screenshot of a conversation.")
+    }
+
+    private var enterTextButton: some View {
+        Button(action: onEnterText) {
+            HomeActionButtonLabel(title: "Enter Text", systemImage: "text.alignleft")
+        }
+        .homeBorderedActionButtonStyle()
+        .accessibilityLabel("Enter Text")
+        .accessibilityHint("Type or paste conversation text manually.")
     }
 
     private var shareHint: some View {
@@ -93,43 +88,36 @@ struct HomeView: View {
             .zuvanoFootnoteStyle()
             .accessibilityLabel("On-device. Your conversation stays on this iPhone.")
     }
-
-    private var pasteAccessibilityHint: String {
-        if viewModel.clipboardHasText {
-            return "Paste copied text to start a new intake."
-        }
-        return "Unavailable. Copy text to your clipboard first."
-    }
 }
 
 #Preview("Light") {
     NavigationStack {
-        HomeView(viewModel: HomeViewModel())
+        HomeView(
+            selectedPhotoItem: .constant(nil),
+            onPaste: { _ in },
+            onEnterText: {}
+        )
     }
 }
 
 #Preview("Dark") {
     NavigationStack {
-        HomeView(viewModel: HomeViewModel())
+        HomeView(
+            selectedPhotoItem: .constant(nil),
+            onPaste: { _ in },
+            onEnterText: {}
+        )
     }
     .preferredColorScheme(.dark)
 }
 
 #Preview("Large Dynamic Type") {
     NavigationStack {
-        HomeView(viewModel: HomeViewModel())
+        HomeView(
+            selectedPhotoItem: .constant(nil),
+            onPaste: { _ in },
+            onEnterText: {}
+        )
     }
     .dynamicTypeSize(.accessibility3)
-}
-
-#Preview("Clipboard Available") {
-    NavigationStack {
-        HomeView(viewModel: HomeViewModel(clipboardChecker: StubClipboardChecker(hasPasteableText: true)))
-    }
-}
-
-#Preview("Clipboard Empty") {
-    NavigationStack {
-        HomeView(viewModel: HomeViewModel(clipboardChecker: StubClipboardChecker(hasPasteableText: false)))
-    }
 }

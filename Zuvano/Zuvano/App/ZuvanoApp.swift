@@ -1,14 +1,22 @@
+import SwiftData
 import SwiftUI
 
 @main
 struct ZuvanoApp: App {
-    @State private var homeViewModel = HomeViewModel()
+    private let modelContainer: ModelContainer
+
+    init() {
+        do {
+            modelContainer = try ModelContainer(for: IntakeRecord.self)
+        } catch {
+            fatalError("Failed to create model container: \(error)")
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                HomeView(viewModel: homeViewModel)
-            }
+            RootView()
         }
+        .modelContainer(modelContainer)
     }
 }

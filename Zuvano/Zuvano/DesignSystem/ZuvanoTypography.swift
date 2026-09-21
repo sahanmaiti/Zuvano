@@ -15,10 +15,22 @@ extension View {
             .multilineTextAlignment(.center)
     }
 
+    func zuvanoContentHeadlineStyle() -> some View {
+        font(ZuvanoTypography.screenHeadline)
+            .foregroundStyle(ZuvanoColors.primaryText)
+            .multilineTextAlignment(.leading)
+    }
+
     func zuvanoMetaStyle() -> some View {
         font(ZuvanoTypography.meta)
             .foregroundStyle(ZuvanoColors.secondaryText)
             .multilineTextAlignment(.center)
+    }
+
+    func zuvanoLeadingMetaStyle() -> some View {
+        font(ZuvanoTypography.meta)
+            .foregroundStyle(ZuvanoColors.secondaryText)
+            .multilineTextAlignment(.leading)
     }
 
     func zuvanoFootnoteStyle() -> some View {

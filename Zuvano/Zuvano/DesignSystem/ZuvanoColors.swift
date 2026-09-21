@@ -5,5 +5,6 @@ enum ZuvanoColors {
     static let secondaryText = Color.secondary
     static let tertiaryText = Color(.tertiaryLabel)
     static let contentBackground = Color(.systemGroupedBackground)
+    static let rowBackground = Color(.secondarySystemGroupedBackground)
     static let accent = Color.accentColor
 }
