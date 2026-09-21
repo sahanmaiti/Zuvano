@@ -64,7 +64,7 @@ The app is also being built with a deliberately small native stack: SwiftUI, Obs
 
 Zuvano is **under active development** as part of **ACoding Hackathon 2026**.
 
-**Day 0 (2026-09-17) is complete.** The product definition, architecture, data model, feature specification, technical decisions, and UI/UX instructions are in place. The actual iOS implementation has not started yet, so there is no Xcode project or Swift source in this repository at the moment.
+**Days 0–2 are complete.** The spec is frozen, the Xcode project exists, and the intake + OCR pipeline is wired end-to-end through extraction. Understanding, Action Drafts, EventKit, and the Share Extension are not built yet.
 
 | Area | Status | Notes |
 |---|---|---|
@@ -75,15 +75,32 @@ Zuvano is **under active development** as part of **ACoding Hackathon 2026**.
 | Technical decisions | ✅ Complete | `docs/05_TECHNICAL_DECISIONS.md` |
 | UI/UX specification | ✅ Complete | `docs/UI_UX_INSTRUCTIONS.md` |
 | Implementation roadmap | ✅ Complete | `docs/7_DAY_BUILD_ROADMAP.md` |
-| Build-in-public logs | 🟡 Started | `docs/build-log/DAY_00_2026-09-17.md` |
-| iOS app / Xcode project | ⬜ Not started | Planned Day 1+ |
-| Core pipeline (OCR, understanding, drafts) | ⬜ Planned | Days 2–4 |
+| Build-in-public logs | 🟡 In progress | `docs/build-log/` (Days 0–2) |
+| iOS app / Xcode project | ✅ Day 1 | `Zuvano/Zuvano.xcodeproj` |
+| Home / Capture (S1) | ✅ Day 1 | Paste, Choose Photo, Enter Text |
+| Intake + OCR pipeline | ✅ Day 2 | SwiftData, Vision OCR, processing + failure UI |
+| On-device understanding | ⬜ Planned | Day 3 |
+| Action Drafts + Review | ⬜ Planned | Day 4 |
 | EventKit execution | ⬜ Planned | Day 5 |
 | Share Extension | ⬜ Planned | Day 6 |
-| Automated tests | ⬜ Planned | Throughout roadmap |
+| Automated tests | 🟡 Started | 9 pipeline unit tests + template UI tests |
 | App Store readiness | ⬜ Not started | Post-hackathon scope |
 
-Some platform details still need SDK or device validation, especially Foundation Models APIs, structured output, OCR quality on real screenshots, and the Share Extension handoff experience.
+### What works today (Day 2)
+
+- **Paste** authorized text via system `UIPasteControl` (no direct clipboard reads)
+- **Choose Photo** via `PhotosPicker` starts image intake
+- **Enter Text** manual entry from Home
+- **Processing** screen with phase-aware copy
+- **Vision OCR** for screenshots (unit-tested with stubs; real-device quality not formally benchmarked)
+- **OCR failure** recovery: Try Again, Enter Text, Discard
+- **Extraction Complete** milestone screen showing extracted text (temporary until Day 3 understanding)
+- **Launch recovery** for interrupted intakes
+- **9 Swift Testing** cases for pipeline, retry, recovery, and temp file cleanup
+
+### Not built yet
+
+Understanding engine, intent extraction, user-actionable filter, Action Drafts, Action Review, EventKit create flow, Share Extension.
 
 ---
 
@@ -105,11 +122,11 @@ flowchart TD
     J --> K[Per-draft result<br/>created or retry]
 ```
 
+**Current implementation stops after extraction.** Successful OCR advances persistence to `.understanding`, but the understanding engine is Day 3 work. The Extraction Complete screen is a temporary milestone to verify extracted text.
+
 The important part is what happens between the model and EventKit.
 
 AI output is treated as input to the system, not as permission to perform an action. Zuvano filters the extracted intents, turns the ones that are actually actionable into drafts, and puts those drafts in front of you for review.
-
-For example, a single chat message might contain a meeting, a reminder, and a task. Zuvano can turn those into separate drafts so you can decide what to keep and what to ignore.
 
 ---
 
@@ -121,88 +138,79 @@ Zuvano uses a **modular pipeline coordinated by a single orchestrator**. The str
 flowchart TB
     subgraph Presentation["Presentation"]
         UI[SwiftUI + Observation]
+        COORD[AppFlowCoordinator]
     end
 
     subgraph Orchestration["Orchestration"]
-        ORCH[IntakePipeline Coordinator]
-        PERM[PermissionManager]
+        ORCH[IntakePipeline]
     end
 
-    subgraph Pipeline["Pipeline services"]
+    subgraph Pipeline["Pipeline services (implemented)"]
         OCR[TextExtractor · Vision]
+    end
+
+    subgraph PipelinePlanned["Pipeline services (planned)"]
         UNDER[UnderstandingEngine]
         NORM[IntentNormalizer]
         EXEC[ActionExecutor]
     end
 
-    subgraph Engines["Engine implementations"]
-        FM[Foundation Models]
-        FB[Fallback engine]
-        CAL[CalendarService]
-        REM[ReminderService]
-    end
-
     subgraph Persistence["Persistence"]
         STORE[ActionStore · SwiftData]
+        TEMP[TemporaryImageStore]
     end
 
-    UI --> ORCH
+    UI --> COORD
+    COORD --> ORCH
     ORCH --> OCR
-    ORCH --> UNDER
-    ORCH --> NORM
-    ORCH --> EXEC
-    ORCH --> PERM
     ORCH <--> STORE
-    UNDER -.-> FM
-    UNDER -.-> FB
-    EXEC -.-> CAL
-    EXEC -.-> REM
+    ORCH <--> TEMP
+    ORCH -.-> UNDER
+    ORCH -.-> NORM
+    ORCH -.-> EXEC
 ```
 
 ### Major components
 
-| Component | Responsibility |
-|---|---|
-| **Presentation** | SwiftUI views render state and forward user actions. Business logic stays out of the views. |
-| **IntakePipeline Coordinator** | Drives the pipeline lifecycle, applies the user-actionable filter, creates Action Drafts, and coordinates review, creation, and execution. |
-| **TextExtractor** | Passes through text and uses Vision OCR for images. Temporary image data is retained until OCR succeeds. |
-| **UnderstandingEngine** | Extracts candidate intents from text. The primary path uses on-device Foundation Models, with a deterministic fallback. |
-| **IntentNormalizer** | Resolves relative dates, times, and entities while preserving ambiguity. It does not create drafts. |
-| **ActionExecutor** | Creates Calendar events or Reminders after the user chooses create. |
-| **PermissionManager** | Requests Calendar or Reminders access only when it is actually needed. |
-| **ActionStore** | Uses SwiftData to persist in-flight Intakes and Action Drafts for review, retry, and execution recovery. It is not a conversation archive. |
+| Component | Responsibility | Status |
+|---|---|---|
+| **Presentation** | SwiftUI views render state; `AppFlowCoordinator` owns flow | ✅ |
+| **IntakePipeline** | Import → extract → persist; retry, manual fallback, discard, recovery | ✅ |
+| **TextExtractor** | Passthrough text + Vision OCR for images | ✅ |
+| **ActionStore** | SwiftData `@ModelActor` for in-flight Intake state | ✅ |
+| **TemporaryImageStore** | Temp image files per data model rules | ✅ |
+| **UnderstandingEngine** | On-device intent extraction | ⬜ Day 3 |
+| **ActionExecutor** | EventKit create after user confirmation | ⬜ Day 5 |
+| **PermissionManager** | Calendar/Reminders access when needed | ⬜ Day 5 |
 
 ### Important design decisions
 
 - **Intake processing is separate from draft execution.** Intake state covers ingestion through ready-for-review. Confirmation and EventKit state belong to Action Drafts.
-- **Intent and Action Draft are different things.** Only user-actionable intents become drafts. Questions, historical statements, and commitments belonging to someone else should not become user actions.
-- **Retries start from the failed stage.** A failed OCR step should not require rerunning the entire pipeline. The same applies to understanding, draft generation, and individual EventKit operations.
-- **Execution is designed to be idempotent.** The app persists `executing` before calling EventKit and stores the resulting `nativeIdentifier` after success. Recovery does not blindly execute an action again.
-- **Sensitive content stays in-flight.** The app is designed to purge sensitive text after terminal completion or discard rather than turning it into a permanent conversation archive.
+- **Intent and Action Draft are different things.** Only user-actionable intents become drafts.
+- **Retries start from the failed stage.** OCR, understanding, draft generation, and EventKit each have their own retry boundary.
+- **Paste uses system authorization.** iOS 16+ blocks direct `UIPasteboard` reads. Paste must go through a visible `UIPasteControl`.
+- **Sensitive content stays in-flight.** Purged after terminal completion or discard, not stored as a conversation archive.
 
-More detail is available in [`docs/02_SYSTEM_ARCHITECTURE.md`](docs/02_SYSTEM_ARCHITECTURE.md), [`docs/03_DATA_MODEL.md`](docs/03_DATA_MODEL.md), and [`docs/05_TECHNICAL_DECISIONS.md`](docs/05_TECHNICAL_DECISIONS.md).
+More detail: [`docs/02_SYSTEM_ARCHITECTURE.md`](docs/02_SYSTEM_ARCHITECTURE.md), [`docs/03_DATA_MODEL.md`](docs/03_DATA_MODEL.md), [`docs/05_TECHNICAL_DECISIONS.md`](docs/05_TECHNICAL_DECISIONS.md).
 
 ---
 
 ## 🛠️ Tech Stack
 
-The target application is built around Apple's native frameworks.
+| Technology | Purpose | In use |
+|---|---|---|
+| **Swift 6** | Application language, strict concurrency | ✅ |
+| **SwiftUI** | Native iPhone UI | ✅ |
+| **Observation** (`@Observable`) | `AppFlowCoordinator` state | ✅ |
+| **Swift Concurrency** | Async pipeline, `@ModelActor` | ✅ |
+| **SwiftData** | In-flight Intake persistence | ✅ |
+| **Vision** | On-device OCR (`VNRecognizeTextRequest`) | ✅ |
+| **UIKit** | `UIPasteControl` for authorized paste | ✅ |
+| **Foundation Models** (iOS 26+) | On-device understanding | ⬜ Day 3 |
+| **EventKit** | Calendar / Reminders after confirmation | ⬜ Day 5 |
+| **PhotosPicker** | Image import | ✅ |
 
-The Xcode project and Swift source are **not in the repository yet**. This is the stack defined by the current technical decisions and will be validated as implementation begins.
-
-| Technology | Purpose |
-|---|---|
-| **Swift** | Application language |
-| **SwiftUI** | Native iPhone UI |
-| **Observation** (`@Observable`) | Reactive UI and orchestrator state |
-| **Swift Concurrency** | Async pipeline and Swift 6 strict concurrency |
-| **SwiftData** | In-flight Intake and Action Draft persistence |
-| **Vision** | On-device OCR for conversation screenshots |
-| **Foundation Models** (iOS 26+) | Primary on-device understanding |
-| **EventKit** | Calendar events and Reminders after user confirmation |
-| **PhotosPicker** | Image import without broad photo-library permission |
-
-**Out of scope for the MVP:** third-party dependencies, external LLM APIs, backend services, UIKit-first architecture, DI frameworks, and event buses.
+**Out of scope for the MVP:** third-party dependencies, external LLM APIs, backend services.
 
 Deployment target: **iOS 26.0** minimum. Development and testing target: **iOS 27**.
 
@@ -212,31 +220,41 @@ Deployment target: **iOS 26.0** minimum. Development and testing target: **iOS 2
 
 ```text
 Zuvano/
-├── README.md                          # This file
-├── skills-lock.json                   # Installed Cursor agent skills lockfile
-├── .agents/
-│   └── skills/                        # Project-local agent skills
-├── .cursor/
-│   ├── agents/
-│   │   └── ios-design-reviewer.md     # UI/UX review subagent for Zuvano
-│   └── rules/
-│       └── zuvano-build-workflow.mdc  # Build-in-public / daily workflow rules
-└── docs/
-    ├── 00_PROJECT_CONTEXT.md          # Master product context
-    ├── 01_PRODUCT_SPEC.md             # Product requirements
-    ├── 02_SYSTEM_ARCHITECTURE.md      # Technical architecture
-    ├── 03_DATA_MODEL.md               # Entities, states, lifecycle
-    ├── 04_FEATURE_SPEC.md             # Behavioral specification (F1–F14)
-    ├── 05_TECHNICAL_DECISIONS.md      # Accepted technical decisions (TD-01–TD-22)
-    ├── UI_UX_INSTRUCTIONS.md          # UI/UX implementation specification
-    ├── 7_DAY_BUILD_ROADMAP.md         # Day-by-day implementation plan
-    ├── BUILD_LOG_TEMPLATE.md          # Template for daily build logs
-    ├── SETUP_README.md                # Cursor / build-in-public setup notes
-    └── build-log/
-        └── DAY_00_2026-09-17.md       # Day 0 build log
+├── README.md
+├── Zuvano/
+│   ├── Zuvano.xcodeproj
+│   ├── Zuvano/
+│   │   ├── App/                    # ZuvanoApp entry point
+│   │   ├── Domain/                 # Source, IntakeSnapshot, pipeline enums
+│   │   ├── Extraction/             # TextExtracting, VisionTextExtractor
+│   │   ├── Orchestration/          # IntakePipeline
+│   │   ├── Persistence/            # IntakeRecord, ActionStore, TemporaryImageStore
+│   │   ├── Features/
+│   │   │   ├── App/                # AppFlowCoordinator, RootView
+│   │   │   ├── Home/               # HomeView, ZuvanoPasteControl
+│   │   │   ├── Processing/         # S2 Processing
+│   │   │   ├── PipelineFailure/    # S7 failure + retry
+│   │   │   ├── ManualTextEntry/      # OCR fallback text entry
+│   │   │   └── ExtractionComplete/ # Day 2 milestone (temporary)
+│   │   └── DesignSystem/           # Colors, typography, spacing
+│   ├── ZuvanoTests/                # Swift Testing (pipeline + extraction)
+│   └── ZuvanoUITests/              # Template UI tests
+├── docs/                           # Frozen spec set + roadmap + build logs
+│   ├── 00_PROJECT_CONTEXT.md
+│   ├── 01_PRODUCT_SPEC.md
+│   ├── 02_SYSTEM_ARCHITECTURE.md
+│   ├── 03_DATA_MODEL.md
+│   ├── 04_FEATURE_SPEC.md
+│   ├── 05_TECHNICAL_DECISIONS.md
+│   ├── UI_UX_INSTRUCTIONS.md
+│   ├── 7_DAY_BUILD_ROADMAP.md
+│   └── build-log/
+│       ├── DAY_00_2026-09-17.md
+│       ├── DAY_01_2026-09-18.md
+│       └── DAY_02_2026-09-18.md
+├── .agents/skills/                 # Project-local agent skills
+└── .cursor/rules/                  # Build workflow rules
 ```
-
-There is **no `Zuvano/` app target directory yet**. The Xcode project and Swift sources will be added during implementation, starting on Day 1.
 
 ---
 
@@ -252,26 +270,26 @@ If you are new to the project, start here:
 6. [`docs/05_TECHNICAL_DECISIONS.md`](docs/05_TECHNICAL_DECISIONS.md) — technology choices
 7. [`docs/UI_UX_INSTRUCTIONS.md`](docs/UI_UX_INSTRUCTIONS.md) — UI/UX specification
 
-The implementation plan is in [`docs/7_DAY_BUILD_ROADMAP.md`](docs/7_DAY_BUILD_ROADMAP.md).
+Implementation plan: [`docs/7_DAY_BUILD_ROADMAP.md`](docs/7_DAY_BUILD_ROADMAP.md)
 
-Daily progress is recorded in [`docs/build-log/`](docs/build-log/).
+Daily progress: [`docs/build-log/`](docs/build-log/)
 
 ---
 
 ## 🗺️ Roadmap
 
-| Day | Focus |
-|---|---|
-| **0** ✅ | Product, architecture, data model, UI/UX — complete |
-| **1** | Xcode project, SwiftUI app shell, Home / Capture |
-| **2** | Intake, OCR, extraction pipeline |
-| **3** | On-device understanding, intent extraction, user-actionable filter |
-| **4** | Action Drafts, Action Review |
-| **5** | EventKit execution, permissions, recovery |
-| **6** | Share Extension, polish, QA |
-| **7** | Demo hardening, build-in-public wrap-up |
+| Day | Focus | Status |
+|---|---|---|
+| **0** | Product, architecture, data model, UI/UX | ✅ Complete |
+| **1** | Xcode project, SwiftUI app shell, Home / Capture | ✅ Complete |
+| **2** | Intake, OCR, extraction pipeline | ✅ Complete |
+| **3** | On-device understanding, intent extraction, user-actionable filter | ⬜ Next |
+| **4** | Action Drafts, Action Review | ⬜ Planned |
+| **5** | EventKit execution, permissions, recovery | ⬜ Planned |
+| **6** | Share Extension, polish, QA | ⬜ Planned |
+| **7** | Demo hardening, build-in-public wrap-up | ⬜ Planned |
 
-See [`docs/7_DAY_BUILD_ROADMAP.md`](docs/7_DAY_BUILD_ROADMAP.md) for the full definitions of done and verification criteria.
+See [`docs/7_DAY_BUILD_ROADMAP.md`](docs/7_DAY_BUILD_ROADMAP.md) for definitions of done and verification criteria.
 
 ---
 
@@ -283,9 +301,10 @@ Privacy is part of the architecture, not a separate feature added later.
 - The core flow does not use API keys or telemetry.
 - Raw images are kept only until OCR succeeds.
 - Extracted text is kept while it is needed for review and retry, then purged. It is not stored as a browsable conversation archive.
+- Paste uses Apple's `UIPasteControl`. Clipboard content is only read after you tap Paste and iOS authorizes access.
 - Calendar and Reminder items created through EventKit can sync through the user's Apple accounts in the normal way.
 
-More detail is in [`docs/00_PROJECT_CONTEXT.md`](docs/00_PROJECT_CONTEXT.md) §15 and [`docs/01_PRODUCT_SPEC.md`](docs/01_PRODUCT_SPEC.md) §21.
+More detail: [`docs/00_PROJECT_CONTEXT.md`](docs/00_PROJECT_CONTEXT.md) §15, [`docs/01_PRODUCT_SPEC.md`](docs/01_PRODUCT_SPEC.md) §21.
 
 ---
 
@@ -303,24 +322,34 @@ The user chooses the content, reviews the proposed actions, and decides what get
 
 ## 🛠️ Getting Started
 
-> **Note:** The runnable iOS app is not in this repository yet. Implementation starts on Day 1.
-
 ### Requirements
 
-The planned development setup is:
+- Xcode with iOS 26+ SDK (iOS 27 recommended for development)
+- iPhone Simulator or physical iPhone running iOS 26+
 
-- Xcode with an iOS 26+ SDK
-- iPhone Simulator or a physical iPhone
-- A device with Foundation Models availability for full understanding tests
-- macOS for Share Extension development
+### Build and run
 
-### When the Xcode project is added
+```bash
+cd Zuvano
+open Zuvano.xcodeproj
+```
 
-1. Open the project in Xcode.
-2. Select an iPhone Simulator or connected device running iOS 26+.
-3. Build and run.
+Select an iPhone Simulator (or a connected device), then **Product → Run** (⌘R).
 
-The `docs/` specification set is the source of truth for implementation. If two documents disagree, use this resolution order:
+### Run tests
+
+```bash
+cd Zuvano
+xcodebuild -scheme Zuvano \
+  -destination 'platform=iOS Simulator,name=iPhone 18 Pro' \
+  test
+```
+
+Or run **ZuvanoTests** from Xcode (⌘U).
+
+### Source of truth
+
+The `docs/` specification set governs implementation. If two documents disagree, use this resolution order:
 
 **Product → Feature → Architecture → Technical decisions → UI/UX instructions**
 
@@ -330,9 +359,13 @@ The `docs/` specification set is the source of truth for implementation. If two 
 
 Zuvano is being built in public during **ACoding Hackathon 2026**.
 
-The daily build logs in [`docs/build-log/`](docs/build-log/) record what was actually worked on each day. The idea is simple: build the app, document the decisions, share the progress, and show what happens during the hackathon rather than only posting the finished result.
+Daily build logs in [`docs/build-log/`](docs/build-log/) record what was actually worked on each day.
 
-**Day 0** was about getting the foundation right before writing the first line of app code.
+| Day | Summary |
+|---|---|
+| **0** | Froze product spec, architecture, data model, UI/UX |
+| **1** | Xcode project, SwiftUI Home shell, design system |
+| **2** | Intake + SwiftData + Vision OCR pipeline, processing/failure UI, authorized paste |
 
 ---
 
