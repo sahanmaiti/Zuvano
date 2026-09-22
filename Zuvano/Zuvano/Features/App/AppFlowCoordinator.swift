@@ -5,7 +5,7 @@ import SwiftData
 enum AppFlow: Equatable {
     case home
     case processing
-    case extractionComplete
+    case understandingResults
     case pipelineFailure
     case manualTextEntry
     case homeTextEntry
@@ -16,6 +16,7 @@ enum AppFlow: Equatable {
 final class AppFlowCoordinator {
     var flow: AppFlow = .home
     var activeIntake: IntakeSnapshot?
+    var filteredIntents: [Intent] = []
     var isWorking = false
     var alertTitle = "Something went wrong"
     var alertMessage: String?
@@ -35,10 +36,9 @@ final class AppFlowCoordinator {
         let recovered = await pipeline.recoverSessionsOnLaunch()
         guard let latest = recovered.first else { return }
         activeIntake = latest
-        route(for: latest)
+        await resumeIntake(latest)
     }
 
-    /// Called by SwiftUI `PasteButton` after iOS authorizes clipboard access.
     func handlePastedText(_ text: String) {
         alertMessage = nil
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -79,13 +79,14 @@ final class AppFlowCoordinator {
         isWorking = true
         flow = .processing
         activeIntake = nil
+        filteredIntents = []
 
         do {
-            let snapshot = try await pipeline.startIntake(from: source)
-            activeIntake = snapshot
-            route(for: snapshot)
+            let outcome = try await pipeline.startIntake(from: source)
+            applyOutcome(outcome)
         } catch {
             activeIntake = nil
+            filteredIntents = []
             flow = .home
             alertTitle = "That content can't be used"
             alertMessage = "Try copying the conversation again or entering the text manually."
@@ -115,9 +116,8 @@ final class AppFlowCoordinator {
         flow = .processing
 
         do {
-            let snapshot = try await pipeline.retryUnderstanding(intakeID: intakeID)
-            activeIntake = snapshot
-            route(for: snapshot)
+            let outcome = try await pipeline.retryUnderstanding(intakeID: intakeID)
+            applyOutcome(outcome)
         } catch {
             if let snapshot = try? await pipeline.snapshot(for: intakeID) {
                 activeIntake = snapshot
@@ -153,9 +153,8 @@ final class AppFlowCoordinator {
         flow = .processing
 
         do {
-            let snapshot = try await pipeline.retryExtraction(intakeID: intakeID)
-            activeIntake = snapshot
-            route(for: snapshot)
+            let outcome = try await pipeline.retryExtraction(intakeID: intakeID)
+            applyOutcome(outcome)
         } catch {
             if let snapshot = try? await pipeline.snapshot(for: intakeID) {
                 activeIntake = snapshot
@@ -169,11 +168,11 @@ final class AppFlowCoordinator {
     func submitManualText(_ text: String) async {
         guard let intakeID = activeIntake?.id else { return }
         isWorking = true
+        flow = .processing
 
         do {
-            let snapshot = try await pipeline.applyManualText(intakeID: intakeID, text: text)
-            activeIntake = snapshot
-            flow = .extractionComplete
+            let outcome = try await pipeline.applyManualText(intakeID: intakeID, text: text)
+            applyOutcome(outcome)
         } catch {
             flow = .manualTextEntry
         }
@@ -191,7 +190,7 @@ final class AppFlowCoordinator {
         returnToHome()
     }
 
-    func finishExtraction() async {
+    func finishReview() async {
         guard let intakeID = activeIntake?.id else {
             returnToHome()
             return
@@ -211,16 +210,41 @@ final class AppFlowCoordinator {
 
     func returnToHome() {
         activeIntake = nil
+        filteredIntents = []
         flow = .home
+    }
+
+    private func resumeIntake(_ snapshot: IntakeSnapshot) async {
+        switch snapshot.processingState {
+        case .understanding, .readyForReview:
+            isWorking = true
+            flow = .processing
+            do {
+                let outcome = try await pipeline.continueUnderstanding(intakeID: snapshot.id)
+                applyOutcome(outcome)
+            } catch {
+                activeIntake = snapshot
+                route(for: snapshot)
+            }
+            isWorking = false
+        default:
+            route(for: snapshot)
+        }
+    }
+
+    private func applyOutcome(_ outcome: UnderstandingOutcome) {
+        activeIntake = outcome.snapshot
+        filteredIntents = outcome.filteredIntents
+        route(for: outcome.snapshot)
     }
 
     private func route(for snapshot: IntakeSnapshot) {
         switch snapshot.processingState {
-        case .understanding:
-            flow = .extractionComplete
+        case .readyForReview:
+            flow = .understandingResults
         case .failed:
             flow = .pipelineFailure
-        case .extracting, .importing, .generatingDrafts:
+        case .understanding, .extracting, .importing, .generatingDrafts:
             flow = .processing
         default:
             flow = .home

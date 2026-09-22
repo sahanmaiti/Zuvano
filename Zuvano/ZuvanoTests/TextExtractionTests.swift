@@ -26,61 +26,61 @@ struct TextExtractionTests {
 }
 
 struct IntakePipelineTests {
-    @Test func textIntakeProducesExtractedText() async throws {
+    private func makePipeline(extractor: any TextExtracting) throws -> IntakePipeline {
         let container = try ModelContainer(
             for: IntakeRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
-        let pipeline = IntakePipeline(store: store, extractor: PassthroughTextExtractor())
+        return IntakePipeline(
+            store: store,
+            extractor: extractor,
+            understandingEngine: FallbackUnderstandingEngine()
+        )
+    }
 
-        let snapshot = try await pipeline.startIntake(from: .pastedText("Call Arjun on Thursday."))
+    @Test func textIntakeProducesExtractedText() async throws {
+        let pipeline = try makePipeline(extractor: PassthroughTextExtractor())
 
-        #expect(snapshot.processingState == .understanding)
-        #expect(snapshot.extractedText == "Call Arjun on Thursday.")
-        #expect(snapshot.temporaryImageRef == nil)
+        let outcome = try await pipeline.startIntake(from: .pastedText("Call Arjun on Thursday."))
+
+        #expect(outcome.snapshot.processingState == .readyForReview)
+        #expect(outcome.snapshot.extractedText == "Call Arjun on Thursday.")
+        #expect(outcome.snapshot.temporaryImageRef == nil)
     }
 
     @Test func ocrFailureKeepsTemporaryImageReference() async throws {
-        let container = try ModelContainer(
-            for: IntakeRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        let pipeline = try makePipeline(
+            extractor: StubTextExtractor(result: .failure(ExtractionError.emptyResult))
         )
-        let store = ActionStore(modelContainer: container)
-        let failingExtractor = StubTextExtractor(result: .failure(ExtractionError.emptyResult))
-        let pipeline = IntakePipeline(store: store, extractor: failingExtractor)
 
-        let snapshot = try await pipeline.startIntake(
+        let outcome = try await pipeline.startIntake(
             from: .pickedImage(Data("fake-image".utf8))
         )
 
-        #expect(snapshot.processingState == .failed)
-        #expect(snapshot.failedStage == .extraction)
-        #expect(snapshot.failureReason == .ocrFailed)
-        #expect(snapshot.temporaryImageRef != nil)
+        #expect(outcome.snapshot.processingState == .failed)
+        #expect(outcome.snapshot.failedStage == .extraction)
+        #expect(outcome.snapshot.failureReason == .ocrFailed)
+        #expect(outcome.snapshot.temporaryImageRef != nil)
     }
 
     @Test func manualTextFallbackClearsTemporaryImage() async throws {
-        let container = try ModelContainer(
-            for: IntakeRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        let pipeline = try makePipeline(
+            extractor: StubTextExtractor(result: .failure(ExtractionError.emptyResult))
         )
-        let store = ActionStore(modelContainer: container)
-        let failingExtractor = StubTextExtractor(result: .failure(ExtractionError.emptyResult))
-        let pipeline = IntakePipeline(store: store, extractor: failingExtractor)
 
-        let failedSnapshot = try await pipeline.startIntake(
+        let failedOutcome = try await pipeline.startIntake(
             from: .pickedImage(Data("fake-image".utf8))
         )
 
         let recovered = try await pipeline.applyManualText(
-            intakeID: failedSnapshot.id,
+            intakeID: failedOutcome.snapshot.id,
             text: "Manual conversation text."
         )
 
-        #expect(recovered.processingState == .understanding)
-        #expect(recovered.extractedText == "Manual conversation text.")
-        #expect(recovered.temporaryImageRef == nil)
+        #expect(recovered.snapshot.processingState == .readyForReview)
+        #expect(recovered.snapshot.extractedText == "Manual conversation text.")
+        #expect(recovered.snapshot.temporaryImageRef == nil)
     }
 
     @Test func recoverInterruptedExtractionMarksFailed() async throws {
@@ -89,7 +89,11 @@ struct IntakePipelineTests {
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
-        let pipeline = IntakePipeline(store: store, extractor: PassthroughTextExtractor())
+        let pipeline = IntakePipeline(
+            store: store,
+            extractor: PassthroughTextExtractor(),
+            understandingEngine: FallbackUnderstandingEngine()
+        )
 
         let snapshot = try await store.createIntake(sourceType: .text, imageData: nil)
         _ = try await store.updateIntake(id: snapshot.id, processingState: .extracting)
@@ -103,19 +107,14 @@ struct IntakePipelineTests {
     }
 
     @Test func completedExtractionResumesOnLaunch() async throws {
-        let container = try ModelContainer(
-            for: IntakeRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
-        )
-        let store = ActionStore(modelContainer: container)
-        let pipeline = IntakePipeline(store: store, extractor: PassthroughTextExtractor())
+        let pipeline = try makePipeline(extractor: PassthroughTextExtractor())
 
-        let snapshot = try await pipeline.startIntake(from: .pastedText("Saved conversation text."))
+        let outcome = try await pipeline.startIntake(from: .pastedText("Saved conversation text."))
         let recovered = await pipeline.recoverSessionsOnLaunch()
 
-        #expect(snapshot.processingState == .understanding)
+        #expect(outcome.snapshot.processingState == .readyForReview)
         #expect(recovered.count == 1)
-        #expect(recovered[0].processingState == .understanding)
+        #expect(recovered[0].processingState == .readyForReview)
         #expect(recovered[0].extractedText == "Saved conversation text.")
     }
 
@@ -131,12 +130,13 @@ struct IntakePipelineTests {
 
         let failingPipeline = IntakePipeline(
             store: store,
-            extractor: StubTextExtractor(result: .failure(.emptyResult))
+            extractor: StubTextExtractor(result: .failure(.emptyResult)),
+            understandingEngine: FallbackUnderstandingEngine()
         )
-        let failedSnapshot = try await failingPipeline.startIntake(
+        let failedOutcome = try await failingPipeline.startIntake(
             from: .pickedImage(Data("fake-image".utf8))
         )
-        let fileName = try #require(failedSnapshot.temporaryImageRef)
+        let fileName = try #require(failedOutcome.snapshot.temporaryImageRef)
         let fileURL = tempDirectory.appendingPathComponent(fileName)
         #expect(FileManager.default.fileExists(atPath: fileURL.path))
 
@@ -146,12 +146,13 @@ struct IntakePipelineTests {
                 result: .success(
                     ExtractedText(text: "OCR text", method: .ocr, ocrConfidence: 0.95)
                 )
-            )
+            ),
+            understandingEngine: FallbackUnderstandingEngine()
         )
-        let result = try await succeedingPipeline.retryExtraction(intakeID: failedSnapshot.id)
+        let result = try await succeedingPipeline.retryExtraction(intakeID: failedOutcome.snapshot.id)
 
-        #expect(result.extractedText == "OCR text")
-        #expect(result.temporaryImageRef == nil)
+        #expect(result.snapshot.extractedText == "OCR text")
+        #expect(result.snapshot.temporaryImageRef == nil)
         #expect(FileManager.default.fileExists(atPath: fileURL.path) == false)
     }
 
@@ -162,24 +163,29 @@ struct IntakePipelineTests {
         )
         let store = ActionStore(modelContainer: container)
 
-        let failingExtractor = StubTextExtractor(result: .failure(ExtractionError.emptyResult))
-        let failingPipeline = IntakePipeline(store: store, extractor: failingExtractor)
-        let failedSnapshot = try await failingPipeline.startIntake(
+        let failingPipeline = IntakePipeline(
+            store: store,
+            extractor: StubTextExtractor(result: .failure(ExtractionError.emptyResult)),
+            understandingEngine: FallbackUnderstandingEngine()
+        )
+        let failedOutcome = try await failingPipeline.startIntake(
             from: .pickedImage(Data("fake-image".utf8))
         )
 
-        let succeedingPipeline = IntakePipeline(store: store, extractor: PassthroughTextExtractor())
-        // Simulate retry by applying manual path is separate; for OCR retry use a succeeding OCR mock.
         let ocrExtractor = StubTextExtractor(
             result: .success(
                 ExtractedText(text: "Recovered OCR text", method: .ocr, ocrConfidence: 0.9)
             )
         )
-        let retryPipeline = IntakePipeline(store: store, extractor: ocrExtractor)
-        let retried = try await retryPipeline.retryExtraction(intakeID: failedSnapshot.id)
+        let retryPipeline = IntakePipeline(
+            store: store,
+            extractor: ocrExtractor,
+            understandingEngine: FallbackUnderstandingEngine()
+        )
+        let retried = try await retryPipeline.retryExtraction(intakeID: failedOutcome.snapshot.id)
 
-        #expect(retried.processingState == .understanding)
-        #expect(retried.extractedText == "Recovered OCR text")
-        #expect(retried.temporaryImageRef == nil)
+        #expect(retried.snapshot.processingState == .readyForReview)
+        #expect(retried.snapshot.extractedText == "Recovered OCR text")
+        #expect(retried.snapshot.temporaryImageRef == nil)
     }
 }

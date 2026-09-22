@@ -5,6 +5,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var coordinator: AppFlowCoordinator?
+    @State private var isPhotoPickerPresented = false
     @State private var selectedPhotoItem: PhotosPickerItem?
 
     var body: some View {
@@ -14,6 +15,12 @@ struct RootView: View {
                 NavigationStack {
                     rootContent(coordinator: coordinator)
                 }
+                .photosPicker(
+                    isPresented: $isPhotoPickerPresented,
+                    selection: $selectedPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                )
                 .alert(
                     coordinator.alertTitle,
                     isPresented: Binding(
@@ -60,9 +67,11 @@ struct RootView: View {
         switch coordinator.flow {
         case .home:
             HomeView(
-                selectedPhotoItem: $selectedPhotoItem,
                 onPaste: { text in
                     coordinator.handlePastedText(text)
+                },
+                onChoosePhoto: {
+                    isPhotoPickerPresented = true
                 },
                 onEnterText: {
                     coordinator.showHomeTextEntry()
@@ -86,10 +95,13 @@ struct RootView: View {
             } else {
                 processingPlaceholder
             }
-        case .extractionComplete:
+        case .understandingResults:
             if let intake = coordinator.activeIntake {
-                ExtractionCompleteView(intake: intake) {
-                    Task { await coordinator.finishExtraction() }
+                UnderstandingResultsView(
+                    intake: intake,
+                    filteredIntents: coordinator.filteredIntents
+                ) {
+                    Task { await coordinator.finishReview() }
                 }
             } else {
                 processingPlaceholder

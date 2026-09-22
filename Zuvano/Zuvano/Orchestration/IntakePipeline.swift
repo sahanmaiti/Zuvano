@@ -3,13 +3,19 @@ import Foundation
 struct IntakePipeline: Sendable {
     private let store: ActionStore
     private let extractor: any TextExtracting
+    private let understandingEngine: any UnderstandingEngine
 
-    nonisolated init(store: ActionStore, extractor: any TextExtracting = VisionTextExtractor()) {
+    nonisolated init(
+        store: ActionStore,
+        extractor: any TextExtracting = VisionTextExtractor(),
+        understandingEngine: any UnderstandingEngine = CompositeUnderstandingEngine()
+    ) {
         self.store = store
         self.extractor = extractor
+        self.understandingEngine = understandingEngine
     }
 
-    nonisolated func startIntake(from source: Source) async throws -> IntakeSnapshot {
+    nonisolated func startIntake(from source: Source) async throws -> UnderstandingOutcome {
         let trimmedText = source.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasText = trimmedText?.isEmpty == false
         let hasImage = source.imageData != nil
@@ -24,26 +30,50 @@ struct IntakePipeline: Sendable {
         )
 
         _ = try await store.updateIntake(id: snapshot.id, processingState: .extracting)
-        return try await runExtraction(intakeID: snapshot.id, source: source)
+        let afterExtraction = try await runExtraction(intakeID: snapshot.id, source: source)
+
+        if afterExtraction.processingState == .failed {
+            return UnderstandingOutcome(snapshot: afterExtraction, filteredIntents: [])
+        }
+
+        guard let text = afterExtraction.extractedText, !text.isEmpty else {
+            throw PipelineError.invalidInput
+        }
+
+        return try await runUnderstanding(intakeID: afterExtraction.id, text: text)
     }
 
-    nonisolated func retryUnderstanding(intakeID: UUID) async throws -> IntakeSnapshot {
+    nonisolated func continueUnderstanding(intakeID: UUID) async throws -> UnderstandingOutcome {
         guard let intake = try await store.snapshot(for: intakeID) else {
             throw PipelineError.intakeNotFound
         }
 
-        guard intake.failedStage == .understanding,
+        guard let text = intake.extractedText, !text.isEmpty else {
+            throw PipelineError.invalidRetry
+        }
+
+        return try await runUnderstanding(intakeID: intakeID, text: text)
+    }
+
+    nonisolated func retryUnderstanding(intakeID: UUID) async throws -> UnderstandingOutcome {
+        guard let intake = try await store.snapshot(for: intakeID) else {
+            throw PipelineError.intakeNotFound
+        }
+
+        guard intake.failedStage == .understanding || intake.processingState == .understanding,
               let text = intake.extractedText,
               !text.isEmpty else {
             throw PipelineError.invalidRetry
         }
 
-        return try await store.updateIntake(
+        _ = try await store.updateIntake(
             id: intakeID,
             processingState: .understanding,
             failedStage: .some(nil),
             failureReason: .some(nil)
         )
+
+        return try await runUnderstanding(intakeID: intakeID, text: text)
     }
 
     nonisolated func retryDraftGeneration(intakeID: UUID) async throws -> IntakeSnapshot {
@@ -65,7 +95,7 @@ struct IntakePipeline: Sendable {
         )
     }
 
-    nonisolated func retryExtraction(intakeID: UUID) async throws -> IntakeSnapshot {
+    nonisolated func retryExtraction(intakeID: UUID) async throws -> UnderstandingOutcome {
         guard let intake = try await store.snapshot(for: intakeID) else {
             throw PipelineError.intakeNotFound
         }
@@ -82,10 +112,20 @@ struct IntakePipeline: Sendable {
         )
 
         let source = try await sourceForRetry(intake: intake)
-        return try await runExtraction(intakeID: intakeID, source: source)
+        let afterExtraction = try await runExtraction(intakeID: intakeID, source: source)
+
+        if afterExtraction.processingState == .failed {
+            return UnderstandingOutcome(snapshot: afterExtraction, filteredIntents: [])
+        }
+
+        guard let text = afterExtraction.extractedText, !text.isEmpty else {
+            throw PipelineError.invalidRetry
+        }
+
+        return try await runUnderstanding(intakeID: intakeID, text: text)
     }
 
-    nonisolated func applyManualText(intakeID: UUID, text: String) async throws -> IntakeSnapshot {
+    nonisolated func applyManualText(intakeID: UUID, text: String) async throws -> UnderstandingOutcome {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw PipelineError.invalidInput
@@ -97,7 +137,7 @@ struct IntakePipeline: Sendable {
 
         await store.deleteTemporaryImage(fileName: intake.temporaryImageRef)
 
-        return try await store.updateIntake(
+        _ = try await store.updateIntake(
             id: intakeID,
             processingState: .understanding,
             extractedText: .some(trimmed),
@@ -105,6 +145,8 @@ struct IntakePipeline: Sendable {
             failedStage: .some(nil),
             failureReason: .some(nil)
         )
+
+        return try await runUnderstanding(intakeID: intakeID, text: trimmed)
     }
 
     nonisolated func discard(intakeID: UUID) async throws {
@@ -112,7 +154,6 @@ struct IntakePipeline: Sendable {
     }
 
     /// Resumes or recovers in-flight intakes after launch.
-    /// Extraction-complete intakes (`.understanding` with text) are resumed, not marked failed.
     nonisolated func recoverSessionsOnLaunch() async -> [IntakeSnapshot] {
         do {
             let intakes = try await store.fetchActiveSnapshots()
@@ -120,7 +161,7 @@ struct IntakePipeline: Sendable {
 
             for intake in intakes {
                 switch intake.processingState {
-                case .understanding:
+                case .understanding, .readyForReview:
                     if let text = intake.extractedText, !text.isEmpty {
                         recovered.append(intake)
                     } else {
@@ -166,6 +207,47 @@ struct IntakePipeline: Sendable {
             throw PipelineError.intakeNotFound
         }
         return snapshot
+    }
+
+    nonisolated private func runUnderstanding(intakeID: UUID, text: String) async throws -> UnderstandingOutcome {
+        _ = try await store.updateIntake(id: intakeID, processingState: .understanding)
+
+        do {
+            let result = try await understandingEngine.understand(text)
+            let filtered = UserActionableFilter.filter(result.intents)
+
+            let snapshot = try await store.updateIntake(
+                id: intakeID,
+                processingState: .readyForReview,
+                failedStage: .some(nil),
+                failureReason: .some(nil)
+            )
+
+            return UnderstandingOutcome(snapshot: snapshot, filteredIntents: filtered)
+        } catch {
+            let failureReason = Self.failureReason(for: error)
+            let snapshot = try await store.updateIntake(
+                id: intakeID,
+                processingState: .failed,
+                failedStage: .some(.understanding),
+                failureReason: .some(failureReason)
+            )
+            return UnderstandingOutcome(snapshot: snapshot, filteredIntents: [])
+        }
+    }
+
+    nonisolated private static func failureReason(for error: Error) -> FailureReason {
+        if let understandingError = error as? UnderstandingError {
+            switch understandingError {
+            case .unavailable:
+                return .aiUnavailable
+            case .malformedOutput:
+                return .malformedOutput
+            case .extractionFailed:
+                return .aiExtractionFailed
+            }
+        }
+        return .aiExtractionFailed
     }
 
     nonisolated private func runExtraction(intakeID: UUID, source: Source) async throws -> IntakeSnapshot {

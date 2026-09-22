@@ -1,9 +1,8 @@
-import PhotosUI
 import SwiftUI
 
 struct HomeView: View {
-    @Binding var selectedPhotoItem: PhotosPickerItem?
     let onPaste: (String) -> Void
+    let onChoosePhoto: () -> Void
     let onEnterText: () -> Void
 
     var body: some View {
@@ -48,11 +47,7 @@ struct HomeView: View {
     }
 
     private var choosePhotoButton: some View {
-        PhotosPicker(
-            selection: $selectedPhotoItem,
-            matching: .images,
-            photoLibrary: .shared()
-        ) {
+        Button(action: onChoosePhoto) {
             HomeActionButtonLabel(title: "Choose Photo", systemImage: "photo.on.rectangle")
         }
         .homeBorderedActionButtonStyle()
@@ -93,8 +88,8 @@ struct HomeView: View {
 #Preview("Light") {
     NavigationStack {
         HomeView(
-            selectedPhotoItem: .constant(nil),
             onPaste: { _ in },
+            onChoosePhoto: {},
             onEnterText: {}
         )
     }
@@ -103,8 +98,8 @@ struct HomeView: View {
 #Preview("Dark") {
     NavigationStack {
         HomeView(
-            selectedPhotoItem: .constant(nil),
             onPaste: { _ in },
+            onChoosePhoto: {},
             onEnterText: {}
         )
     }
@@ -114,8 +109,8 @@ struct HomeView: View {
 #Preview("Large Dynamic Type") {
     NavigationStack {
         HomeView(
-            selectedPhotoItem: .constant(nil),
             onPaste: { _ in },
+            onChoosePhoto: {},
             onEnterText: {}
         )
     }
