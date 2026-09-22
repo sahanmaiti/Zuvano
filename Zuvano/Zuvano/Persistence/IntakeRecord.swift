@@ -13,6 +13,9 @@ final class IntakeRecord {
     var createdAt: Date
     var updatedAt: Date
 
+    @Relationship(deleteRule: .cascade, inverse: \ActionDraftRecord.intake)
+    var drafts: [ActionDraftRecord] = []
+
     init(
         id: UUID = UUID(),
         sourceType: SourceType,

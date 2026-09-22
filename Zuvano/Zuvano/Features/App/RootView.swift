@@ -95,14 +95,33 @@ struct RootView: View {
             } else {
                 processingPlaceholder
             }
-        case .understandingResults:
+        case .actionReview:
             if let intake = coordinator.activeIntake {
-                UnderstandingResultsView(
+                ActionReviewView(
                     intake: intake,
-                    filteredIntents: coordinator.filteredIntents
-                ) {
-                    Task { await coordinator.finishReview() }
-                }
+                    drafts: coordinator.drafts,
+                    onUpdateDraft: { draft in
+                        Task { await coordinator.updateDraft(draft) }
+                    },
+                    onSkip: { id in
+                        Task { await coordinator.skipDraft(id: id) }
+                    },
+                    onRestore: { id in
+                        Task { await coordinator.restoreDraft(id: id) }
+                    },
+                    onCreate: { id in
+                        Task { await coordinator.createDraft(id: id) }
+                    },
+                    onCreateAllReady: {
+                        Task { await coordinator.createAllReady() }
+                    },
+                    onCreateSelected: { ids in
+                        Task { await coordinator.createSelected(ids: ids) }
+                    },
+                    onDone: {
+                        Task { await coordinator.finishReview() }
+                    }
+                )
             } else {
                 processingPlaceholder
             }

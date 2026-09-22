@@ -5,7 +5,7 @@ import SwiftData
 enum AppFlow: Equatable {
     case home
     case processing
-    case understandingResults
+    case actionReview
     case pipelineFailure
     case manualTextEntry
     case homeTextEntry
@@ -16,20 +16,23 @@ enum AppFlow: Equatable {
 final class AppFlowCoordinator {
     var flow: AppFlow = .home
     var activeIntake: IntakeSnapshot?
-    var filteredIntents: [Intent] = []
+    var drafts: [ActionDraftSnapshot] = []
     var isWorking = false
     var alertTitle = "Something went wrong"
     var alertMessage: String?
 
     private let pipeline: IntakePipeline
+    private let store: ActionStore
 
     init(modelContainer: ModelContainer) {
         let store = ActionStore(modelContainer: modelContainer)
+        self.store = store
         self.pipeline = IntakePipeline(store: store)
     }
 
-    init(pipeline: IntakePipeline) {
+    init(pipeline: IntakePipeline, store: ActionStore) {
         self.pipeline = pipeline
+        self.store = store
     }
 
     func recoverOnLaunch() async {
@@ -79,14 +82,14 @@ final class AppFlowCoordinator {
         isWorking = true
         flow = .processing
         activeIntake = nil
-        filteredIntents = []
+        drafts = []
 
         do {
             let outcome = try await pipeline.startIntake(from: source)
             applyOutcome(outcome)
         } catch {
             activeIntake = nil
-            filteredIntents = []
+            drafts = []
             flow = .home
             alertTitle = "That content can't be used"
             alertMessage = "Try copying the conversation again or entering the text manually."
@@ -134,9 +137,8 @@ final class AppFlowCoordinator {
         flow = .processing
 
         do {
-            let snapshot = try await pipeline.retryDraftGeneration(intakeID: intakeID)
-            activeIntake = snapshot
-            route(for: snapshot)
+            let outcome = try await pipeline.retryDraftGeneration(intakeID: intakeID)
+            applyOutcome(outcome)
         } catch {
             if let snapshot = try? await pipeline.snapshot(for: intakeID) {
                 activeIntake = snapshot
@@ -200,6 +202,110 @@ final class AppFlowCoordinator {
         returnToHome()
     }
 
+    func updateDraft(_ draft: ActionDraftSnapshot) async {
+        do {
+            let updated = try await pipeline.updateDraft(draft)
+            if let index = drafts.firstIndex(where: { $0.id == updated.id }) {
+                drafts[index] = updated
+            }
+        } catch {
+            alertTitle = "Couldn't save changes"
+            alertMessage = "Try editing again."
+        }
+    }
+
+    func skipDraft(id: UUID) async {
+        guard let index = drafts.firstIndex(where: { $0.id == id }) else { return }
+        var draft = drafts[index]
+        draft = ActionDraftSnapshot(
+            id: draft.id,
+            intakeID: draft.intakeID,
+            intentKind: draft.intentKind,
+            actionKind: draft.actionKind,
+            title: draft.title,
+            sourcePhrase: draft.sourcePhrase,
+            when: draft.when,
+            location: draft.location,
+            person: draft.person,
+            notes: draft.notes,
+            confidence: draft.confidence,
+            ambiguous: draft.ambiguous,
+            confirmationState: .rejected,
+            executionState: draft.executionState,
+            nativeIdentifier: draft.nativeIdentifier,
+            executionError: draft.executionError,
+            createdAt: draft.createdAt,
+            updatedAt: .now
+        )
+        await updateDraft(draft)
+    }
+
+    func restoreDraft(id: UUID) async {
+        guard let index = drafts.firstIndex(where: { $0.id == id }) else { return }
+        var draft = drafts[index]
+        draft = ActionDraftSnapshot(
+            id: draft.id,
+            intakeID: draft.intakeID,
+            intentKind: draft.intentKind,
+            actionKind: draft.actionKind,
+            title: draft.title,
+            sourcePhrase: draft.sourcePhrase,
+            when: draft.when,
+            location: draft.location,
+            person: draft.person,
+            notes: draft.notes,
+            confidence: draft.confidence,
+            ambiguous: draft.ambiguous,
+            confirmationState: .pending,
+            executionState: draft.executionState,
+            nativeIdentifier: draft.nativeIdentifier,
+            executionError: draft.executionError,
+            createdAt: draft.createdAt,
+            updatedAt: .now
+        )
+        await updateDraft(draft)
+    }
+
+    func createDraft(id: UUID) async {
+        guard let index = drafts.firstIndex(where: { $0.id == id }) else { return }
+        let draft = drafts[index]
+        guard DraftValidator.canCreate(draft) else { return }
+
+        let confirmed = ActionDraftSnapshot(
+            id: draft.id,
+            intakeID: draft.intakeID,
+            intentKind: draft.intentKind,
+            actionKind: draft.actionKind,
+            title: draft.title,
+            sourcePhrase: draft.sourcePhrase,
+            when: draft.when,
+            location: draft.location,
+            person: draft.person,
+            notes: draft.notes,
+            confidence: draft.confidence,
+            ambiguous: draft.ambiguous,
+            confirmationState: .confirmed,
+            executionState: draft.executionState,
+            nativeIdentifier: draft.nativeIdentifier,
+            executionError: draft.executionError,
+            createdAt: draft.createdAt,
+            updatedAt: .now
+        )
+        await updateDraft(confirmed)
+    }
+
+    func createAllReady() async {
+        for draft in drafts where DraftValidator.canCreate(draft) {
+            await createDraft(id: draft.id)
+        }
+    }
+
+    func createSelected(ids: [UUID]) async {
+        for id in ids {
+            await createDraft(id: id)
+        }
+    }
+
     func showManualTextEntry() {
         flow = .manualTextEntry
     }
@@ -210,13 +316,13 @@ final class AppFlowCoordinator {
 
     func returnToHome() {
         activeIntake = nil
-        filteredIntents = []
+        drafts = []
         flow = .home
     }
 
     private func resumeIntake(_ snapshot: IntakeSnapshot) async {
         switch snapshot.processingState {
-        case .understanding, .readyForReview:
+        case .understanding:
             isWorking = true
             flow = .processing
             do {
@@ -227,21 +333,29 @@ final class AppFlowCoordinator {
                 route(for: snapshot)
             }
             isWorking = false
+        case .readyForReview:
+            activeIntake = snapshot
+            do {
+                drafts = try await pipeline.loadDrafts(for: snapshot.id)
+            } catch {
+                drafts = []
+            }
+            route(for: snapshot)
         default:
             route(for: snapshot)
         }
     }
 
-    private func applyOutcome(_ outcome: UnderstandingOutcome) {
+    private func applyOutcome(_ outcome: ReviewOutcome) {
         activeIntake = outcome.snapshot
-        filteredIntents = outcome.filteredIntents
+        drafts = outcome.drafts
         route(for: outcome.snapshot)
     }
 
     private func route(for snapshot: IntakeSnapshot) {
         switch snapshot.processingState {
         case .readyForReview:
-            flow = .understandingResults
+            flow = .actionReview
         case .failed:
             flow = .pipelineFailure
         case .understanding, .extracting, .importing, .generatingDrafts:

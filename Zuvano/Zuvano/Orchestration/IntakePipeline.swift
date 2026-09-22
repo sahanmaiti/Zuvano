@@ -15,7 +15,7 @@ struct IntakePipeline: Sendable {
         self.understandingEngine = understandingEngine
     }
 
-    nonisolated func startIntake(from source: Source) async throws -> UnderstandingOutcome {
+    nonisolated func startIntake(from source: Source) async throws -> ReviewOutcome {
         let trimmedText = source.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasText = trimmedText?.isEmpty == false
         let hasImage = source.imageData != nil
@@ -33,7 +33,7 @@ struct IntakePipeline: Sendable {
         let afterExtraction = try await runExtraction(intakeID: snapshot.id, source: source)
 
         if afterExtraction.processingState == .failed {
-            return UnderstandingOutcome(snapshot: afterExtraction, filteredIntents: [])
+            return ReviewOutcome(snapshot: afterExtraction, drafts: [])
         }
 
         guard let text = afterExtraction.extractedText, !text.isEmpty else {
@@ -43,7 +43,7 @@ struct IntakePipeline: Sendable {
         return try await runUnderstanding(intakeID: afterExtraction.id, text: text)
     }
 
-    nonisolated func continueUnderstanding(intakeID: UUID) async throws -> UnderstandingOutcome {
+    nonisolated func continueUnderstanding(intakeID: UUID) async throws -> ReviewOutcome {
         guard let intake = try await store.snapshot(for: intakeID) else {
             throw PipelineError.intakeNotFound
         }
@@ -55,7 +55,11 @@ struct IntakePipeline: Sendable {
         return try await runUnderstanding(intakeID: intakeID, text: text)
     }
 
-    nonisolated func retryUnderstanding(intakeID: UUID) async throws -> UnderstandingOutcome {
+    nonisolated func loadDrafts(for intakeID: UUID) async throws -> [ActionDraftSnapshot] {
+        try await store.fetchDrafts(for: intakeID)
+    }
+
+    nonisolated func retryUnderstanding(intakeID: UUID) async throws -> ReviewOutcome {
         guard let intake = try await store.snapshot(for: intakeID) else {
             throw PipelineError.intakeNotFound
         }
@@ -76,7 +80,7 @@ struct IntakePipeline: Sendable {
         return try await runUnderstanding(intakeID: intakeID, text: text)
     }
 
-    nonisolated func retryDraftGeneration(intakeID: UUID) async throws -> IntakeSnapshot {
+    nonisolated func retryDraftGeneration(intakeID: UUID) async throws -> ReviewOutcome {
         guard let intake = try await store.snapshot(for: intakeID) else {
             throw PipelineError.intakeNotFound
         }
@@ -87,15 +91,17 @@ struct IntakePipeline: Sendable {
             throw PipelineError.invalidRetry
         }
 
-        return try await store.updateIntake(
+        _ = try await store.updateIntake(
             id: intakeID,
             processingState: .generatingDrafts,
             failedStage: .some(nil),
             failureReason: .some(nil)
         )
+
+        return try await runUnderstanding(intakeID: intakeID, text: text)
     }
 
-    nonisolated func retryExtraction(intakeID: UUID) async throws -> UnderstandingOutcome {
+    nonisolated func retryExtraction(intakeID: UUID) async throws -> ReviewOutcome {
         guard let intake = try await store.snapshot(for: intakeID) else {
             throw PipelineError.intakeNotFound
         }
@@ -115,7 +121,7 @@ struct IntakePipeline: Sendable {
         let afterExtraction = try await runExtraction(intakeID: intakeID, source: source)
 
         if afterExtraction.processingState == .failed {
-            return UnderstandingOutcome(snapshot: afterExtraction, filteredIntents: [])
+            return ReviewOutcome(snapshot: afterExtraction, drafts: [])
         }
 
         guard let text = afterExtraction.extractedText, !text.isEmpty else {
@@ -125,7 +131,7 @@ struct IntakePipeline: Sendable {
         return try await runUnderstanding(intakeID: intakeID, text: text)
     }
 
-    nonisolated func applyManualText(intakeID: UUID, text: String) async throws -> UnderstandingOutcome {
+    nonisolated func applyManualText(intakeID: UUID, text: String) async throws -> ReviewOutcome {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw PipelineError.invalidInput
@@ -149,6 +155,10 @@ struct IntakePipeline: Sendable {
         return try await runUnderstanding(intakeID: intakeID, text: trimmed)
     }
 
+    nonisolated func updateDraft(_ draft: ActionDraftSnapshot) async throws -> ActionDraftSnapshot {
+        try await store.updateDraft(draft)
+    }
+
     nonisolated func discard(intakeID: UUID) async throws {
         try await store.purgeIntake(id: intakeID)
     }
@@ -161,7 +171,9 @@ struct IntakePipeline: Sendable {
 
             for intake in intakes {
                 switch intake.processingState {
-                case .understanding, .readyForReview:
+                case .readyForReview:
+                    recovered.append(intake)
+                case .understanding:
                     if let text = intake.extractedText, !text.isEmpty {
                         recovered.append(intake)
                     } else {
@@ -177,7 +189,7 @@ struct IntakePipeline: Sendable {
                     let snapshot = try await store.updateIntake(
                         id: intake.id,
                         processingState: .failed,
-                        failedStage: .some(.understanding),
+                        failedStage: .some(.draftGeneration),
                         failureReason: .some(.interrupted)
                     )
                     recovered.append(snapshot)
@@ -209,21 +221,13 @@ struct IntakePipeline: Sendable {
         return snapshot
     }
 
-    nonisolated private func runUnderstanding(intakeID: UUID, text: String) async throws -> UnderstandingOutcome {
+    nonisolated private func runUnderstanding(intakeID: UUID, text: String) async throws -> ReviewOutcome {
         _ = try await store.updateIntake(id: intakeID, processingState: .understanding)
 
         do {
             let result = try await understandingEngine.understand(text)
             let filtered = UserActionableFilter.filter(result.intents)
-
-            let snapshot = try await store.updateIntake(
-                id: intakeID,
-                processingState: .readyForReview,
-                failedStage: .some(nil),
-                failureReason: .some(nil)
-            )
-
-            return UnderstandingOutcome(snapshot: snapshot, filteredIntents: filtered)
+            return try await runDraftGeneration(intakeID: intakeID, filteredIntents: filtered)
         } catch {
             let failureReason = Self.failureReason(for: error)
             let snapshot = try await store.updateIntake(
@@ -232,7 +236,38 @@ struct IntakePipeline: Sendable {
                 failedStage: .some(.understanding),
                 failureReason: .some(failureReason)
             )
-            return UnderstandingOutcome(snapshot: snapshot, filteredIntents: [])
+            return ReviewOutcome(snapshot: snapshot, drafts: [])
+        }
+    }
+
+    nonisolated private func runDraftGeneration(
+        intakeID: UUID,
+        filteredIntents: [Intent]
+    ) async throws -> ReviewOutcome {
+        _ = try await store.updateIntake(id: intakeID, processingState: .generatingDrafts)
+
+        do {
+            let referenceDate = Date.now
+            let normalized = IntentNormalizer.normalize(filteredIntents, referenceDate: referenceDate)
+            let draftSnapshots = DraftMapper.map(normalized, intakeID: intakeID)
+            let persisted = try await store.replaceDrafts(for: intakeID, drafts: draftSnapshots)
+
+            let snapshot = try await store.updateIntake(
+                id: intakeID,
+                processingState: .readyForReview,
+                failedStage: .some(nil),
+                failureReason: .some(nil)
+            )
+
+            return ReviewOutcome(snapshot: snapshot, drafts: persisted)
+        } catch {
+            let snapshot = try await store.updateIntake(
+                id: intakeID,
+                processingState: .failed,
+                failedStage: .some(.draftGeneration),
+                failureReason: .some(.draftGenerationFailed)
+            )
+            return ReviewOutcome(snapshot: snapshot, drafts: [])
         }
     }
 

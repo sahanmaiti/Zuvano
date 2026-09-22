@@ -63,6 +63,31 @@ enum PipelineStage: String, Codable, Sendable {
     case draftGeneration
 }
 
+enum ActionKind: String, Codable, Sendable {
+    case calendarEvent
+    case reminder
+}
+
+enum ConfirmationState: String, Codable, Sendable {
+    case pending
+    case confirmed
+    case rejected
+}
+
+enum ExecutionState: String, Codable, Sendable {
+    case notStarted
+    case executing
+    case executed
+    case failed
+}
+
+enum DraftValidationConcern: Equatable, Sendable {
+    case ready
+    case ambiguousReady
+    case needsTitle
+    case needsStartTime
+}
+
 enum FailureReason: String, Codable, Sendable {
     case invalidInput
     case unsupportedInput
@@ -208,6 +233,99 @@ struct UnderstandingResult: Equatable, Sendable {
     nonisolated init(intents: [Intent], engine: EngineKind) {
         self.intents = intents
         self.engine = engine
+    }
+}
+
+struct ActionDateTime: Equatable, Sendable {
+    nonisolated let rawExpression: String
+    nonisolated let startDate: Date?
+    nonisolated let endDate: Date?
+    nonisolated let allDay: Bool
+    nonisolated let ambiguous: Bool
+
+    nonisolated init(
+        rawExpression: String,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        allDay: Bool = false,
+        ambiguous: Bool = false
+    ) {
+        self.rawExpression = rawExpression
+        self.startDate = startDate
+        self.endDate = endDate
+        self.allDay = allDay
+        self.ambiguous = ambiguous
+    }
+}
+
+struct ActionDraftSnapshot: Identifiable, Equatable, Sendable {
+    nonisolated let id: UUID
+    nonisolated let intakeID: UUID
+    nonisolated let intentKind: IntentKind
+    nonisolated let actionKind: ActionKind
+    nonisolated let title: String
+    nonisolated let sourcePhrase: String
+    nonisolated let when: ActionDateTime?
+    nonisolated let location: String?
+    nonisolated let person: String?
+    nonisolated let notes: String?
+    nonisolated let confidence: ConfidenceLevel
+    nonisolated let ambiguous: Bool
+    nonisolated let confirmationState: ConfirmationState
+    nonisolated let executionState: ExecutionState
+    nonisolated let nativeIdentifier: String?
+    nonisolated let executionError: FailureReason?
+    nonisolated let createdAt: Date
+    nonisolated let updatedAt: Date
+
+    nonisolated init(
+        id: UUID = UUID(),
+        intakeID: UUID,
+        intentKind: IntentKind,
+        actionKind: ActionKind,
+        title: String,
+        sourcePhrase: String,
+        when: ActionDateTime? = nil,
+        location: String? = nil,
+        person: String? = nil,
+        notes: String? = nil,
+        confidence: ConfidenceLevel,
+        ambiguous: Bool = false,
+        confirmationState: ConfirmationState = .pending,
+        executionState: ExecutionState = .notStarted,
+        nativeIdentifier: String? = nil,
+        executionError: FailureReason? = nil,
+        createdAt: Date = .now,
+        updatedAt: Date = .now
+    ) {
+        self.id = id
+        self.intakeID = intakeID
+        self.intentKind = intentKind
+        self.actionKind = actionKind
+        self.title = title
+        self.sourcePhrase = sourcePhrase
+        self.when = when
+        self.location = location
+        self.person = person
+        self.notes = notes
+        self.confidence = confidence
+        self.ambiguous = ambiguous
+        self.confirmationState = confirmationState
+        self.executionState = executionState
+        self.nativeIdentifier = nativeIdentifier
+        self.executionError = executionError
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+struct ReviewOutcome: Sendable {
+    nonisolated let snapshot: IntakeSnapshot
+    nonisolated let drafts: [ActionDraftSnapshot]
+
+    nonisolated init(snapshot: IntakeSnapshot, drafts: [ActionDraftSnapshot]) {
+        self.snapshot = snapshot
+        self.drafts = drafts
     }
 }
 

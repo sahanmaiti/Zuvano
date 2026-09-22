@@ -84,6 +84,65 @@ actor ActionStore {
         try modelContext.save()
     }
 
+    func fetchDrafts(for intakeID: UUID) throws -> [ActionDraftSnapshot] {
+        guard let intake = try fetchIntake(id: intakeID) else {
+            throw StoreError.intakeNotFound
+        }
+        return intake.drafts
+            .sorted { $0.createdAt < $1.createdAt }
+            .map { $0.snapshot() }
+    }
+
+    func replaceDrafts(for intakeID: UUID, drafts: [ActionDraftSnapshot]) throws -> [ActionDraftSnapshot] {
+        guard let intake = try fetchIntake(id: intakeID) else {
+            throw StoreError.intakeNotFound
+        }
+
+        for draft in intake.drafts {
+            modelContext.delete(draft)
+        }
+        intake.drafts.removeAll()
+
+        for snapshot in drafts {
+            let record = ActionDraftRecord.from(snapshot: snapshot)
+            record.intake = intake
+            intake.drafts.append(record)
+            modelContext.insert(record)
+        }
+
+        intake.updatedAt = .now
+        try modelContext.save()
+        return try fetchDrafts(for: intakeID)
+    }
+
+    func updateDraft(_ snapshot: ActionDraftSnapshot) throws -> ActionDraftSnapshot {
+        guard let draft = try fetchDraft(id: snapshot.id) else {
+            throw StoreError.draftNotFound
+        }
+        draft.apply(snapshot: snapshot)
+        try modelContext.save()
+        return draft.snapshot()
+    }
+
+    func deleteDrafts(for intakeID: UUID) throws {
+        guard let intake = try fetchIntake(id: intakeID) else {
+            throw StoreError.intakeNotFound
+        }
+        for draft in intake.drafts {
+            modelContext.delete(draft)
+        }
+        intake.drafts.removeAll()
+        intake.updatedAt = .now
+        try modelContext.save()
+    }
+
+    private func fetchDraft(id: UUID) throws -> ActionDraftRecord? {
+        let descriptor = FetchDescriptor<ActionDraftRecord>(
+            predicate: #Predicate { $0.id == id }
+        )
+        return try modelContext.fetch(descriptor).first
+    }
+
     private func fetchIntake(id: UUID) throws -> IntakeRecord? {
         let descriptor = FetchDescriptor<IntakeRecord>(
             predicate: #Predicate { $0.id == id }
@@ -93,5 +152,6 @@ actor ActionStore {
 
     enum StoreError: Error {
         case intakeNotFound
+        case draftNotFound
     }
 }

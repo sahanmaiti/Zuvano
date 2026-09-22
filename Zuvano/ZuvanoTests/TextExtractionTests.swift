@@ -28,7 +28,7 @@ struct TextExtractionTests {
 struct IntakePipelineTests {
     private func makePipeline(extractor: any TextExtracting) throws -> IntakePipeline {
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
@@ -85,7 +85,7 @@ struct IntakePipelineTests {
 
     @Test func recoverInterruptedExtractionMarksFailed() async throws {
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
@@ -122,7 +122,7 @@ struct IntakePipelineTests {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
@@ -158,7 +158,7 @@ struct IntakePipelineTests {
 
     @Test func retryExtractionAfterFailure() async throws {
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)

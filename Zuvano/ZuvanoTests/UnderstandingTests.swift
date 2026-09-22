@@ -130,7 +130,7 @@ struct UnderstandingPipelineTests {
         understandingEngine: any UnderstandingEngine = FallbackUnderstandingEngine()
     ) throws -> IntakePipeline {
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
@@ -145,13 +145,13 @@ struct UnderstandingPipelineTests {
 
         #expect(outcome.snapshot.processingState == .readyForReview)
         #expect(outcome.snapshot.extractedText == text)
-        #expect(outcome.filteredIntents.count == 1)
-        #expect(outcome.filteredIntents[0].kind == .reminder)
+        #expect(outcome.drafts.count == 1)
+        #expect(outcome.drafts[0].actionKind == .reminder)
     }
 
     @Test func understandingFailureIsRetryable() async throws {
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
@@ -165,7 +165,7 @@ struct UnderstandingPipelineTests {
 
         #expect(outcome.snapshot.processingState == .failed)
         #expect(outcome.snapshot.failedStage == .understanding)
-        #expect(outcome.filteredIntents.isEmpty)
+        #expect(outcome.drafts.isEmpty)
 
         let retryPipeline = IntakePipeline(
             store: store,
@@ -175,7 +175,7 @@ struct UnderstandingPipelineTests {
         let retried = try await retryPipeline.retryUnderstanding(intakeID: outcome.snapshot.id)
 
         #expect(retried.snapshot.processingState == .readyForReview)
-        #expect(retried.filteredIntents.count == 1)
+        #expect(retried.drafts.count == 1)
     }
 
     @Test func compositeFallsBackWhenPrimaryFails() async throws {
@@ -191,8 +191,8 @@ struct UnderstandingPipelineTests {
         )
 
         #expect(outcome.snapshot.processingState == .readyForReview)
-        #expect(outcome.filteredIntents.count == 1)
-        #expect(outcome.filteredIntents[0].kind == .task)
+        #expect(outcome.drafts.count == 1)
+        #expect(outcome.drafts[0].actionKind == .reminder)
     }
 
     @Test func manualTextRunsUnderstanding() async throws {
@@ -207,13 +207,13 @@ struct UnderstandingPipelineTests {
         )
 
         #expect(outcome.snapshot.processingState == .readyForReview)
-        #expect(outcome.filteredIntents.count == 1)
-        #expect(outcome.filteredIntents[0].kind == .meeting)
+        #expect(outcome.drafts.count == 1)
+        #expect(outcome.drafts[0].actionKind == .calendarEvent)
     }
 
     @Test func readyForReviewIntakeResumesOnLaunch() async throws {
         let container = try ModelContainer(
-            for: IntakeRecord.self,
+            for: IntakeRecord.self, ActionDraftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let store = ActionStore(modelContainer: container)
