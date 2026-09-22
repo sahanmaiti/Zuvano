@@ -64,7 +64,7 @@ The app is also being built with a deliberately small native stack: SwiftUI, Obs
 
 Zuvano is **under active development** as part of **ACoding Hackathon 2026**.
 
-**Days 0–2 are complete.** The spec is frozen, the Xcode project exists, and the intake + OCR pipeline is wired end-to-end through extraction. Understanding, Action Drafts, EventKit, and the Share Extension are not built yet.
+**Days 0–4 are complete.** The spec is frozen, the Xcode project exists, and the full intake → understanding → draft generation → review loop is wired end-to-end. Create sets drafts to `confirmed` locally; EventKit execution and the Share Extension are not built yet.
 
 | Area | Status | Notes |
 |---|---|---|
@@ -75,32 +75,36 @@ Zuvano is **under active development** as part of **ACoding Hackathon 2026**.
 | Technical decisions | ✅ Complete | `docs/05_TECHNICAL_DECISIONS.md` |
 | UI/UX specification | ✅ Complete | `docs/UI_UX_INSTRUCTIONS.md` |
 | Implementation roadmap | ✅ Complete | `docs/7_DAY_BUILD_ROADMAP.md` |
-| Build-in-public logs | 🟡 In progress | `docs/build-log/` (Days 0–2) |
+| Build-in-public logs | 🟡 In progress | `docs/build-log/` (Days 0–4) |
 | iOS app / Xcode project | ✅ Day 1 | `Zuvano/Zuvano.xcodeproj` |
 | Home / Capture (S1) | ✅ Day 1 | Paste, Choose Photo, Enter Text |
 | Intake + OCR pipeline | ✅ Day 2 | SwiftData, Vision OCR, processing + failure UI |
-| On-device understanding | ⬜ Planned | Day 3 |
-| Action Drafts + Review | ⬜ Planned | Day 4 |
+| On-device understanding | ✅ Day 3 | Foundation Models + fallback, user-actionable filter |
+| Action Drafts + Review | ✅ Day 4 | Normalizer, mapper, validator, edit/skip/create UI |
 | EventKit execution | ⬜ Planned | Day 5 |
 | Share Extension | ⬜ Planned | Day 6 |
-| Automated tests | 🟡 Started | 9 pipeline unit tests + template UI tests |
+| Automated tests | 🟡 In progress | 42 pipeline unit tests + template UI tests |
 | App Store readiness | ⬜ Not started | Post-hackathon scope |
 
-### What works today (Day 2)
+### What works today (Day 4)
 
 - **Paste** authorized text via system `UIPasteControl` (no direct clipboard reads)
 - **Choose Photo** via `PhotosPicker` starts image intake
 - **Enter Text** manual entry from Home
-- **Processing** screen with phase-aware copy
+- **Processing** screen with phase-aware copy (extracting, understanding, preparing actions)
 - **Vision OCR** for screenshots (unit-tested with stubs; real-device quality not formally benchmarked)
 - **OCR failure** recovery: Try Again, Enter Text, Discard
-- **Extraction Complete** milestone screen showing extracted text (temporary until Day 3 understanding)
-- **Launch recovery** for interrupted intakes
-- **9 Swift Testing** cases for pipeline, retry, recovery, and temp file cleanup
+- **On-device understanding** via Foundation Models with deterministic fallback when unavailable
+- **User-actionable filter** drops other people's commitments, questions, hypotheticals, and MVP follow-ups
+- **Intent normalization** with weekday/time resolution and ambiguity marking
+- **Action Draft generation** maps intents to calendar events and reminders, persisted in SwiftData
+- **Action Review** (S3–S6): edit sheet, skip/restore, source peek, validation, batch Create controls
+- **Launch recovery** for interrupted intakes and persisted drafts during review
+- **42 Swift Testing** cases for extraction, understanding, normalization, validation, and draft generation
 
 ### Not built yet
 
-Understanding engine, intent extraction, user-actionable filter, Action Drafts, Action Review, EventKit create flow, Share Extension.
+EventKit create flow (Create currently sets `confirmed` locally only), permission flow, execution-state row UI, Share Extension.
 
 ---
 
@@ -122,7 +126,7 @@ flowchart TD
     J --> K[Per-draft result<br/>created or retry]
 ```
 
-**Current implementation stops after extraction.** Successful OCR advances persistence to `.understanding`, but the understanding engine is Day 3 work. The Extraction Complete screen is a temporary milestone to verify extracted text.
+**Current implementation stops before EventKit.** The pipeline runs extraction → understanding → draft generation → review. Create marks drafts as confirmed locally but does not write to Calendar or Reminders yet.
 
 The important part is what happens between the model and EventKit.
 
@@ -147,12 +151,13 @@ flowchart TB
 
     subgraph Pipeline["Pipeline services (implemented)"]
         OCR[TextExtractor · Vision]
+        UNDER[UnderstandingEngine]
+        NORM[IntentNormalizer · DraftMapper]
+        VAL[DraftValidator]
     end
 
     subgraph PipelinePlanned["Pipeline services (planned)"]
-        UNDER[UnderstandingEngine]
-        NORM[IntentNormalizer]
-        EXEC[ActionExecutor]
+        EXEC[ActionExecutor · EventKit]
     end
 
     subgraph Persistence["Persistence"]
@@ -163,10 +168,11 @@ flowchart TB
     UI --> COORD
     COORD --> ORCH
     ORCH --> OCR
+    ORCH --> UNDER
+    ORCH --> NORM
+    ORCH --> VAL
     ORCH <--> STORE
     ORCH <--> TEMP
-    ORCH -.-> UNDER
-    ORCH -.-> NORM
     ORCH -.-> EXEC
 ```
 
@@ -175,11 +181,14 @@ flowchart TB
 | Component | Responsibility | Status |
 |---|---|---|
 | **Presentation** | SwiftUI views render state; `AppFlowCoordinator` owns flow | ✅ |
-| **IntakePipeline** | Import → extract → persist; retry, manual fallback, discard, recovery | ✅ |
+| **IntakePipeline** | Import → extract → understand → draft → review; retry, recovery | ✅ |
 | **TextExtractor** | Passthrough text + Vision OCR for images | ✅ |
-| **ActionStore** | SwiftData `@ModelActor` for in-flight Intake state | ✅ |
+| **UnderstandingEngine** | On-device intent extraction (FM + fallback) | ✅ |
+| **UserActionableFilter** | Drops non-user intents before draft generation | ✅ |
+| **IntentNormalizer** | Deterministic date/time resolution from raw expressions | ✅ |
+| **DraftMapper / DraftValidator** | Intent → draft mapping and field validation | ✅ |
+| **ActionStore** | SwiftData `@ModelActor` for Intake + Action Draft state | ✅ |
 | **TemporaryImageStore** | Temp image files per data model rules | ✅ |
-| **UnderstandingEngine** | On-device intent extraction | ⬜ Day 3 |
 | **ActionExecutor** | EventKit create after user confirmation | ⬜ Day 5 |
 | **PermissionManager** | Calendar/Reminders access when needed | ⬜ Day 5 |
 
@@ -206,7 +215,7 @@ More detail: [`docs/02_SYSTEM_ARCHITECTURE.md`](docs/02_SYSTEM_ARCHITECTURE.md),
 | **SwiftData** | In-flight Intake persistence | ✅ |
 | **Vision** | On-device OCR (`VNRecognizeTextRequest`) | ✅ |
 | **UIKit** | `UIPasteControl` for authorized paste | ✅ |
-| **Foundation Models** (iOS 26+) | On-device understanding | ⬜ Day 3 |
+| **Foundation Models** (iOS 26+) | On-device understanding | ✅ |
 | **EventKit** | Calendar / Reminders after confirmation | ⬜ Day 5 |
 | **PhotosPicker** | Image import | ✅ |
 
@@ -225,19 +234,21 @@ Zuvano/
 │   ├── Zuvano.xcodeproj
 │   ├── Zuvano/
 │   │   ├── App/                    # ZuvanoApp entry point
-│   │   ├── Domain/                 # Source, IntakeSnapshot, pipeline enums
+│   │   ├── Domain/                 # Source, IntakeSnapshot, Intent, ActionDraft types
 │   │   ├── Extraction/             # TextExtracting, VisionTextExtractor
-│   │   ├── Orchestration/          # IntakePipeline
-│   │   ├── Persistence/            # IntakeRecord, ActionStore, TemporaryImageStore
+│   │   ├── Intelligence/           # UnderstandingEngine, IntentNormalizer, filter
+│   │   ├── Orchestration/          # IntakePipeline, DraftMapper
+│   │   ├── Validation/             # DraftValidator
+│   │   ├── Persistence/            # IntakeRecord, ActionDraftRecord, ActionStore
 │   │   ├── Features/
 │   │   │   ├── App/                # AppFlowCoordinator, RootView
 │   │   │   ├── Home/               # HomeView, ZuvanoPasteControl
 │   │   │   ├── Processing/         # S2 Processing
+│   │   │   ├── ActionReview/       # S3–S6 Review, Edit, Source peek
 │   │   │   ├── PipelineFailure/    # S7 failure + retry
-│   │   │   ├── ManualTextEntry/      # OCR fallback text entry
-│   │   │   └── ExtractionComplete/ # Day 2 milestone (temporary)
+│   │   │   └── ManualTextEntry/    # OCR fallback text entry
 │   │   └── DesignSystem/           # Colors, typography, spacing
-│   ├── ZuvanoTests/                # Swift Testing (pipeline + extraction)
+│   ├── ZuvanoTests/                # Swift Testing (pipeline, understanding, drafts)
 │   └── ZuvanoUITests/              # Template UI tests
 ├── docs/                           # Frozen spec set + roadmap + build logs
 │   ├── 00_PROJECT_CONTEXT.md
@@ -251,7 +262,9 @@ Zuvano/
 │   └── build-log/
 │       ├── DAY_00_2026-09-17.md
 │       ├── DAY_01_2026-09-18.md
-│       └── DAY_02_2026-09-18.md
+│       ├── DAY_02_2026-09-18.md
+│       ├── DAY_03_2026-09-21.md
+│       └── DAY_04_2026-09-22.md
 ├── .agents/skills/                 # Project-local agent skills
 └── .cursor/rules/                  # Build workflow rules
 ```
@@ -283,9 +296,9 @@ Daily progress: [`docs/build-log/`](docs/build-log/)
 | **0** | Product, architecture, data model, UI/UX | ✅ Complete |
 | **1** | Xcode project, SwiftUI app shell, Home / Capture | ✅ Complete |
 | **2** | Intake, OCR, extraction pipeline | ✅ Complete |
-| **3** | On-device understanding, intent extraction, user-actionable filter | ⬜ Next |
-| **4** | Action Drafts, Action Review | ⬜ Planned |
-| **5** | EventKit execution, permissions, recovery | ⬜ Planned |
+| **3** | On-device understanding, intent extraction, user-actionable filter | ✅ Complete |
+| **4** | Action Drafts, Action Review | ✅ Complete |
+| **5** | EventKit execution, permissions, recovery | ⬜ Next |
 | **6** | Share Extension, polish, QA | ⬜ Planned |
 | **7** | Demo hardening, build-in-public wrap-up | ⬜ Planned |
 
@@ -366,6 +379,8 @@ Daily build logs in [`docs/build-log/`](docs/build-log/) record what was actuall
 | **0** | Froze product spec, architecture, data model, UI/UX |
 | **1** | Xcode project, SwiftUI Home shell, design system |
 | **2** | Intake + SwiftData + Vision OCR pipeline, processing/failure UI, authorized paste |
+| **3** | On-device understanding (Foundation Models + fallback), user-actionable filter, Review milestone |
+| **4** | Action Drafts (normalizer, mapper, validator), full Review UX (edit/skip/create), 42 unit tests |
 
 ---
 
