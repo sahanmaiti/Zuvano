@@ -102,7 +102,6 @@ struct ActionReviewView: View {
                 .zuvanoMetaStyle()
         } actions: {
             Button("Done", action: onDone)
-                .buttonStyle(.borderedProminent)
                 .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
                 .accessibilityHint("Returns home and removes this conversation from Zuvano.")
         }
@@ -234,7 +233,6 @@ struct ActionReviewView: View {
 
             Section {
                 Button("Done", action: onDone)
-                    .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity, minHeight: ZuvanoSpacing.minimumTouchTarget)
                     .disabled(!canFinish)
                     .accessibilityHint(
