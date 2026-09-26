@@ -7,9 +7,9 @@ struct ZuvanoApp: App {
 
     init() {
         do {
-            modelContainer = try ModelContainer(for: IntakeRecord.self, ActionDraftRecord.self)
+            modelContainer = try ZuvanoModelContainer.make()
         } catch {
-            fatalError("Failed to create model container: \(error)")
+            fatalError("Failed to create model container.")
         }
     }
 

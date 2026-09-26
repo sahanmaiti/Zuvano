@@ -6,6 +6,11 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DE1D1A3B30626747000F22BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DE1D1A3A30626747000F22BE /* Assets.xcassets */; };
+		DED8C9DB3065797100B7E6B0 /* ZuvanoShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DED8C9D13065797100B7E6B0 /* ZuvanoShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		DE6A879E305CEE1A001A9D9E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,17 +26,58 @@
 			remoteGlobalIDString = DE6A878F305CEE18001A9D9E;
 			remoteInfo = Zuvano;
 		};
+		DED8C9D93065797100B7E6B0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DE6A8788305CEE18001A9D9E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DED8C9D03065797100B7E6B0;
+			remoteInfo = ZuvanoShare;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		DED8C9E03065797100B7E6B0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				DED8C9DB3065797100B7E6B0 /* ZuvanoShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		DE1D1A3A30626747000F22BE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DE6A8790305CEE18001A9D9E /* Zuvano.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zuvano.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE6A879D305CEE1A001A9D9E /* ZuvanoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZuvanoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE6A87A7305CEE1A001A9D9E /* ZuvanoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZuvanoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DED8C9D13065797100B7E6B0 /* ZuvanoShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ZuvanoShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DED8C9DC3065797100B7E6B0 /* Exceptions for "ZuvanoShare" folder in "ZuvanoShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DED8C9D03065797100B7E6B0 /* ZuvanoShare */;
+		};
+		DEHANDOFF023065797100B7E6B0 /* Exceptions for "Zuvano" folder in "Zuvano" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppInfo.plist,
+			);
+			target = DE6A878F305CEE18001A9D9E /* Zuvano */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DE6A8792305CEE18001A9D9E /* Zuvano */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DEHANDOFF023065797100B7E6B0 /* Exceptions for "Zuvano" folder in "Zuvano" target */,
+			);
 			path = Zuvano;
 			sourceTree = "<group>";
 		};
@@ -43,6 +89,14 @@
 		DE6A87AA305CEE1A001A9D9E /* ZuvanoUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ZuvanoUITests;
+			sourceTree = "<group>";
+		};
+		DED8C9D23065797100B7E6B0 /* ZuvanoShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DED8C9DC3065797100B7E6B0 /* Exceptions for "ZuvanoShare" folder in "ZuvanoShare" target */,
+			);
+			path = ZuvanoShare;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -63,15 +117,22 @@
 			files = (
 			);
 		};
+		DED8C9CE3065797100B7E6B0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		DE6A8787305CEE18001A9D9E = {
 			isa = PBXGroup;
 			children = (
+				DE1D1A3A30626747000F22BE /* Assets.xcassets */,
 				DE6A8792305CEE18001A9D9E /* Zuvano */,
 				DE6A87A0305CEE1A001A9D9E /* ZuvanoTests */,
 				DE6A87AA305CEE1A001A9D9E /* ZuvanoUITests */,
+				DED8C9D23065797100B7E6B0 /* ZuvanoShare */,
 				DE6A8791305CEE18001A9D9E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -82,6 +143,7 @@
 				DE6A8790305CEE18001A9D9E /* Zuvano.app */,
 				DE6A879D305CEE1A001A9D9E /* ZuvanoTests.xctest */,
 				DE6A87A7305CEE1A001A9D9E /* ZuvanoUITests.xctest */,
+				DED8C9D13065797100B7E6B0 /* ZuvanoShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -96,8 +158,12 @@
 				DE6A878C305CEE18001A9D9E /* Sources */,
 				DE6A878D305CEE18001A9D9E /* Frameworks */,
 				DE6A878E305CEE18001A9D9E /* Resources */,
+				DED8C9E03065797100B7E6B0 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				DED8C9DA3065797100B7E6B0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				DE6A8792305CEE18001A9D9E /* Zuvano */,
@@ -149,6 +215,24 @@
 			productReference = DE6A87A7305CEE1A001A9D9E /* ZuvanoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		DED8C9D03065797100B7E6B0 /* ZuvanoShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DED8C9DD3065797100B7E6B0 /* Build configuration list for PBXNativeTarget "ZuvanoShare" */;
+			buildPhases = (
+				DED8C9CD3065797100B7E6B0 /* Sources */,
+				DED8C9CE3065797100B7E6B0 /* Frameworks */,
+				DED8C9CF3065797100B7E6B0 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				DED8C9D23065797100B7E6B0 /* ZuvanoShare */,
+			);
+			name = ZuvanoShare;
+			productName = ZuvanoShare;
+			productReference = DED8C9D13065797100B7E6B0 /* ZuvanoShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -170,6 +254,9 @@
 						CreatedOnToolsVersion = 27.0;
 						TestTargetID = DE6A878F305CEE18001A9D9E;
 					};
+					DED8C9D03065797100B7E6B0 = {
+						CreatedOnToolsVersion = 27.0;
+					};
 				};
 			};
 			buildConfigurationList = DE6A878B305CEE18001A9D9E /* Build configuration list for PBXProject "Zuvano" */;
@@ -189,6 +276,7 @@
 				DE6A878F305CEE18001A9D9E /* Zuvano */,
 				DE6A879C305CEE1A001A9D9E /* ZuvanoTests */,
 				DE6A87A6305CEE1A001A9D9E /* ZuvanoUITests */,
+				DED8C9D03065797100B7E6B0 /* ZuvanoShare */,
 			);
 		};
 /* End PBXProject section */
@@ -197,6 +285,7 @@
 		DE6A878E305CEE18001A9D9E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				DE1D1A3B30626747000F22BE /* Assets.xcassets in Resources */,
 			);
 		};
 		DE6A879B305CEE1A001A9D9E /* Resources */ = {
@@ -205,6 +294,11 @@
 			);
 		};
 		DE6A87A5305CEE1A001A9D9E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		DED8C9CF3065797100B7E6B0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -227,6 +321,11 @@
 			files = (
 			);
 		};
+		DED8C9CD3065797100B7E6B0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -239,6 +338,11 @@
 			isa = PBXTargetDependency;
 			target = DE6A878F305CEE18001A9D9E /* Zuvano */;
 			targetProxy = DE6A87A8305CEE1A001A9D9E /* PBXContainerItemProxy */;
+		};
+		DED8C9DA3065797100B7E6B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DED8C9D03065797100B7E6B0 /* ZuvanoShare */;
+			targetProxy = DED8C9D93065797100B7E6B0 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -362,6 +466,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Zuvano/Zuvano.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -369,6 +474,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Zuvano/AppInfo.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Zuvano adds events you approve to Calendar.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Zuvano adds reminders you approve to Reminders.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -381,8 +490,8 @@
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -410,6 +519,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Zuvano/Zuvano.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -417,6 +527,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Zuvano/AppInfo.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Zuvano adds events you approve to Calendar.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Zuvano adds reminders you approve to Reminders.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -429,8 +543,8 @@
 				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -551,6 +665,69 @@
 			};
 			name = Release;
 		};
+		DED8C9DE3065797100B7E6B0 /* Debug configuration for PBXNativeTarget "ZuvanoShare" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ZuvanoShare/ZuvanoShare.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ZuvanoShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Zuvano;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zuvano.app.ZuvanoShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		DED8C9DF3065797100B7E6B0 /* Release configuration for PBXNativeTarget "ZuvanoShare" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ZuvanoShare/ZuvanoShare.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ZuvanoShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Zuvano;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zuvano.app.ZuvanoShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -583,6 +760,14 @@
 			buildConfigurations = (
 				DE6A87B6305CEE1A001A9D9E /* Debug configuration for PBXNativeTarget "ZuvanoUITests" */,
 				DE6A87B7305CEE1A001A9D9E /* Release configuration for PBXNativeTarget "ZuvanoUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		DED8C9DD3065797100B7E6B0 /* Build configuration list for PBXNativeTarget "ZuvanoShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DED8C9DE3065797100B7E6B0 /* Debug configuration for PBXNativeTarget "ZuvanoShare" */,
+				DED8C9DF3065797100B7E6B0 /* Release configuration for PBXNativeTarget "ZuvanoShare" */,
 			);
 			defaultConfigurationName = Release;
 		};

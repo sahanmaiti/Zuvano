@@ -47,7 +47,7 @@ struct PipelineFailureView: View {
         }
         .padding(.horizontal)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ZuvanoColors.contentBackground)
+        .zuvanoContentBackground()
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
     }

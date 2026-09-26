@@ -56,7 +56,38 @@ struct IntakePipeline: Sendable {
     }
 
     nonisolated func loadDrafts(for intakeID: UUID) async throws -> [ActionDraftSnapshot] {
-        try await store.fetchDrafts(for: intakeID)
+        try await recoverDraftExecutionStates(for: intakeID)
+    }
+
+    /// Repairs interrupted execution states on launch. Never calls EventKit.
+    nonisolated func recoverDraftExecutionStates(for intakeID: UUID) async throws -> [ActionDraftSnapshot] {
+        let drafts = try await store.fetchDrafts(for: intakeID)
+        var recovered: [ActionDraftSnapshot] = []
+
+        for draft in drafts {
+            guard draft.executionState == .executing else {
+                recovered.append(draft)
+                continue
+            }
+
+            let repaired: ActionDraftSnapshot
+            if draft.nativeIdentifier != nil {
+                repaired = draft.updating(
+                    executionState: .executed,
+                    executionError: nil
+                )
+            } else {
+                repaired = draft.updating(
+                    executionState: .failed,
+                    executionError: .interrupted
+                )
+            }
+
+            let persisted = try await store.updateDraft(repaired)
+            recovered.append(persisted)
+        }
+
+        return recovered
     }
 
     nonisolated func retryUnderstanding(intakeID: UUID) async throws -> ReviewOutcome {

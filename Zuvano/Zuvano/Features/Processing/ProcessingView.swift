@@ -25,7 +25,7 @@ struct ProcessingView: View {
         }
         .padding(.horizontal)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ZuvanoColors.contentBackground)
+        .zuvanoContentBackground()
         .navigationTitle("Processing")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)

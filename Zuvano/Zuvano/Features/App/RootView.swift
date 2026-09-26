@@ -1,9 +1,11 @@
 import PhotosUI
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var coordinator: AppFlowCoordinator?
     @State private var isPhotoPickerPresented = false
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -14,6 +16,13 @@ struct RootView: View {
                 @Bindable var coordinator = coordinator
                 NavigationStack {
                     rootContent(coordinator: coordinator)
+                        .animation(
+                            flowTransitionAnimation,
+                            value: coordinator.flow
+                        )
+                }
+                .onOpenURL { url in
+                    coordinator.handleHandoffURL(url)
                 }
                 .photosPicker(
                     isPresented: $isPhotoPickerPresented,
@@ -43,7 +52,7 @@ struct RootView: View {
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(ZuvanoColors.contentBackground)
+                    .zuvanoContentBackground()
             }
         }
         .onAppear {
@@ -100,6 +109,10 @@ struct RootView: View {
                 ActionReviewView(
                     intake: intake,
                     drafts: coordinator.drafts,
+                    deniedPermissionKinds: coordinator.deniedPermissionKinds,
+                    canFinish: coordinator.canFinishReview,
+                    showPermissionPreAlert: coordinator.showPermissionPreAlert,
+                    permissionPreAlertMessage: permissionPreAlertMessage(for: coordinator.pendingPermissionActionKinds),
                     onUpdateDraft: { draft in
                         Task { await coordinator.updateDraft(draft) }
                     },
@@ -118,10 +131,32 @@ struct RootView: View {
                     onCreateSelected: { ids in
                         Task { await coordinator.createSelected(ids: ids) }
                     },
+                    onRetry: { id in
+                        Task { await coordinator.retryExecution(id: id) }
+                    },
+                    onDismissFailure: { id in
+                        coordinator.dismissFailedDraft(id: id)
+                    },
+                    dismissedFailedDraftIDs: coordinator.dismissedFailedDraftIDs,
+                    onOpenSettings: {
+                        coordinator.openSystemSettings()
+                    },
+                    onContinuePermissionPreAlert: {
+                        Task {
+                            await coordinator.continueAfterPermissionPreAlert()
+                        }
+                    },
+                    onCancelPermissionPreAlert: {
+                        coordinator.cancelPermissionPreAlert()
+                    },
                     onDone: {
                         Task { await coordinator.finishReview() }
+                    },
+                    onDiscard: {
+                        Task { await coordinator.discardActiveIntake() }
                     }
                 )
+                .accessibilityAnnouncement(coordinator.lastExecutionAnnouncement)
             } else {
                 processingPlaceholder
             }
@@ -186,6 +221,39 @@ struct RootView: View {
         } catch {
             selectedPhotoItem = nil
             coordinator.showPhotoImportError()
+        }
+    }
+
+    private var flowTransitionAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.25)
+    }
+
+    private func permissionPreAlertMessage(for actionKinds: Set<ActionKind>) -> String {
+        let needsCalendar = actionKinds.contains(.calendarEvent)
+        let needsReminders = actionKinds.contains(.reminder)
+
+        switch (needsCalendar, needsReminders) {
+        case (true, true):
+            return "Zuvano adds events you approve to Calendar and reminders you approve to Reminders."
+        case (true, false):
+            return "Zuvano adds events you approve to Calendar."
+        case (false, true):
+            return "Zuvano adds reminders you approve to Reminders."
+        default:
+            return "Zuvano needs permission to add your approved actions."
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func accessibilityAnnouncement(_ message: String?) -> some View {
+        if let message {
+            self.onChange(of: message) { _, newValue in
+                UIAccessibility.post(notification: .announcement, argument: newValue)
+            }
+        } else {
+            self
         }
     }
 }

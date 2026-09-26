@@ -68,6 +68,23 @@ enum ActionKind: String, Codable, Sendable {
     case reminder
 }
 
+enum PermissionKind: String, Hashable, Codable, Sendable {
+    case calendar
+    case reminders
+}
+
+struct PermissionOutcome: Sendable, Equatable {
+    nonisolated let deniedKinds: Set<PermissionKind>
+
+    nonisolated var allGranted: Bool {
+        deniedKinds.isEmpty
+    }
+
+    nonisolated init(deniedKinds: Set<PermissionKind> = []) {
+        self.deniedKinds = deniedKinds
+    }
+}
+
 enum ConfirmationState: String, Codable, Sendable {
     case pending
     case confirmed
@@ -102,6 +119,10 @@ enum FailureReason: String, Codable, Sendable {
     case permissionDenied
     case calendarFailed
     case reminderFailed
+    case noWritableCalendar
+    case noWritableReminderList
+    case calendarSaveFailed
+    case reminderSaveFailed
 }
 
 struct Source: Sendable {
@@ -121,6 +142,14 @@ struct Source: Sendable {
 
     nonisolated static func pickedImage(_ data: Data) -> Source {
         Source(type: .image, text: nil, imageData: data)
+    }
+
+    nonisolated static func sharedText(_ text: String) -> Source {
+        Source(type: .shareText, text: text, imageData: nil)
+    }
+
+    nonisolated static func sharedImage(_ data: Data) -> Source {
+        Source(type: .shareImage, text: nil, imageData: data)
     }
 }
 
@@ -316,6 +345,34 @@ struct ActionDraftSnapshot: Identifiable, Equatable, Sendable {
         self.executionError = executionError
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    nonisolated func updating(
+        confirmationState: ConfirmationState? = nil,
+        executionState: ExecutionState? = nil,
+        nativeIdentifier: String?? = nil,
+        executionError: FailureReason?? = nil
+    ) -> ActionDraftSnapshot {
+        ActionDraftSnapshot(
+            id: id,
+            intakeID: intakeID,
+            intentKind: intentKind,
+            actionKind: actionKind,
+            title: title,
+            sourcePhrase: sourcePhrase,
+            when: when,
+            location: location,
+            person: person,
+            notes: notes,
+            confidence: confidence,
+            ambiguous: ambiguous,
+            confirmationState: confirmationState ?? self.confirmationState,
+            executionState: executionState ?? self.executionState,
+            nativeIdentifier: nativeIdentifier ?? self.nativeIdentifier,
+            executionError: executionError ?? self.executionError,
+            createdAt: createdAt,
+            updatedAt: .now
+        )
     }
 }
 

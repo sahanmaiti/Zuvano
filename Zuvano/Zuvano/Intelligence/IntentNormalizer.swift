@@ -24,13 +24,29 @@ enum IntentNormalizer {
             case .dateTime:
                 if let weekday = resolveWeekday(entity.rawExpression, referenceDate: referenceDate, calendar: calendar) {
                     weekdayDate = weekday
-                    normalizedEntities.append(IntentEntity(
-                        id: entity.id,
-                        kind: .dateTime,
-                        rawExpression: entity.rawExpression,
-                        normalizedValue: iso8601(weekday, calendar: calendar),
-                        ambiguous: false
-                    ))
+                    if let resolved = resolveTime(
+                        entity.rawExpression,
+                        on: weekday,
+                        referenceDate: referenceDate,
+                        calendar: calendar
+                    ) {
+                        timeResult = resolved
+                        normalizedEntities.append(IntentEntity(
+                            id: entity.id,
+                            kind: .dateTime,
+                            rawExpression: entity.rawExpression,
+                            normalizedValue: iso8601(resolved.date, calendar: calendar),
+                            ambiguous: resolved.ambiguous
+                        ))
+                    } else {
+                        normalizedEntities.append(IntentEntity(
+                            id: entity.id,
+                            kind: .dateTime,
+                            rawExpression: entity.rawExpression,
+                            normalizedValue: iso8601(weekday, calendar: calendar),
+                            ambiguous: false
+                        ))
+                    }
                 } else if let resolved = resolveTime(
                     entity.rawExpression,
                     on: weekdayDate,
@@ -60,6 +76,25 @@ enum IntentNormalizer {
             }
         }
 
+        let hasResolvedDateTime = normalizedEntities.contains {
+            $0.kind == .dateTime && $0.normalizedValue != nil
+        }
+
+        if !hasResolvedDateTime,
+           let fallback = resolveDateTimeFromSourcePhrase(
+               intent.sourcePhrase,
+               referenceDate: referenceDate,
+               calendar: calendar
+           ) {
+            timeResult = (fallback.date, fallback.ambiguous)
+            normalizedEntities.append(IntentEntity(
+                kind: .dateTime,
+                rawExpression: fallback.rawExpression,
+                normalizedValue: iso8601(fallback.date, calendar: calendar),
+                ambiguous: fallback.ambiguous
+            ))
+        }
+
         let isAmbiguous = intent.ambiguous || (timeResult?.ambiguous ?? false)
             || normalizedEntities.contains(where: { $0.kind == .dateTime && $0.ambiguous })
 
@@ -72,6 +107,26 @@ enum IntentNormalizer {
             ambiguous: isAmbiguous,
             attribution: intent.attribution
         )
+    }
+
+    nonisolated private static func resolveDateTimeFromSourcePhrase(
+        _ sourcePhrase: String,
+        referenceDate: Date,
+        calendar: Calendar
+    ) -> (date: Date, ambiguous: Bool, rawExpression: String)? {
+        let phrase = sourcePhrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phrase.isEmpty else { return nil }
+
+        var baseDate: Date?
+        if let weekday = resolveWeekday(phrase, referenceDate: referenceDate, calendar: calendar) {
+            baseDate = weekday
+        }
+
+        if let resolved = resolveTime(phrase, on: baseDate, referenceDate: referenceDate, calendar: calendar) {
+            return (resolved.date, resolved.ambiguous, phrase)
+        }
+
+        return nil
     }
 
     nonisolated private static func resolveWeekday(

@@ -29,7 +29,7 @@ struct HomeView: View {
             .padding(.bottom, ZuvanoSpacing.emptyStateVertical)
             .frame(maxWidth: .infinity)
         }
-        .background(ZuvanoColors.contentBackground)
+        .zuvanoContentBackground()
         .navigationTitle("Zuvano")
         .navigationBarTitleDisplayMode(.large)
     }
