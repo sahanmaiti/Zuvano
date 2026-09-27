@@ -38,4 +38,10 @@ extension View {
             .foregroundStyle(ZuvanoColors.tertiaryText)
             .multilineTextAlignment(.center)
     }
+
+    func zuvanoLeadingFootnoteStyle() -> some View {
+        font(ZuvanoTypography.footnote)
+            .foregroundStyle(ZuvanoColors.tertiaryText)
+            .multilineTextAlignment(.leading)
+    }
 }

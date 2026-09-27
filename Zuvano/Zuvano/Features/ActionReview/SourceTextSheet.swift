@@ -8,9 +8,10 @@ struct SourceTextSheet: View {
         NavigationStack {
             ScrollView {
                 Text(extractedText)
-                    .zuvanoMetaStyle()
+                    .font(.body)
+                    .foregroundStyle(ZuvanoColors.primaryText)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
+                    .padding(20)
             }
             .background(ZuvanoColors.contentBackground)
             .navigationTitle("Source")

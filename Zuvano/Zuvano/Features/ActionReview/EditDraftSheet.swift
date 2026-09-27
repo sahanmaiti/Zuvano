@@ -104,7 +104,7 @@ struct EditDraftSheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
+                    Button("Done") { save() }
                 }
             }
             .confirmationDialog(

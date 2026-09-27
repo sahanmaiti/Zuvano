@@ -1,17 +1,18 @@
 import SwiftUI
 
 extension View {
-    /// Shared width and height for Home primary actions (Paste, Choose Photo, Enter Text).
+    /// Shared width and minimum touch height for Home capture actions.
     func homeActionButtonLayout() -> some View {
         frame(maxWidth: .infinity)
-            .frame(minHeight: ZuvanoSpacing.homeActionButtonHeight)
+            .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
     }
 
-    /// Bordered capsule chrome used by SwiftUI home actions.
-    func homeBorderedActionButtonStyle() -> some View {
+    /// Secondary Home actions (Choose Photo, Enter Text).
+    func homeSecondaryActionButtonStyle() -> some View {
         buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
+            .buttonBorderShape(.roundedRectangle(radius: 14))
             .controlSize(.large)
+            .tint(ZuvanoColors.accent)
             .homeActionButtonLayout()
     }
 }

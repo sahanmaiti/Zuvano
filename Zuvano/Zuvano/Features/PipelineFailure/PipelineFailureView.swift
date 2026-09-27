@@ -19,6 +19,7 @@ struct PipelineFailureView: View {
                 if showsRetry {
                     Button("Try Again", action: onRetry)
                         .buttonStyle(.borderedProminent)
+                        .tint(ZuvanoColors.accent)
                         .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
                         .accessibilityHint(retryAccessibilityHint)
                 }
@@ -37,14 +38,11 @@ struct PipelineFailureView: View {
             }
             .padding(.top, ZuvanoSpacing.footnoteTop)
         }
-        .confirmationDialog(
-            "Discard this conversation?",
+        .discardConversationConfirmation(
             isPresented: $showDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Discard", role: .destructive, action: onDiscard)
-            Button("Keep", role: .cancel) {}
-        }
+            cancelTitle: "Keep",
+            onDiscard: onDiscard
+        )
         .padding(.horizontal)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .zuvanoContentBackground()

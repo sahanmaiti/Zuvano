@@ -36,9 +36,22 @@ final class ShareViewController: UIViewController {
 
         do {
             let result = try await writeHandoff(from: extensionContext)
-            _ = await extensionContext.open(result.openURL)
-            finish()
+            let opened = await extensionContext.open(result.openURL)
+            if opened {
+                finish()
+            } else {
+                showHandoffFailure()
+            }
         } catch {
+            showHandoffFailure()
+        }
+    }
+
+    @MainActor
+    private func showHandoffFailure() {
+        statusLabel.text = "Couldn't open that share. Try pasting the text instead."
+        Task {
+            try? await Task.sleep(for: .seconds(2))
             finish()
         }
     }

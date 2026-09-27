@@ -51,7 +51,7 @@ private struct PasteControlRepresentable: UIViewRepresentable {
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: PasteHostView, context: Context) -> CGSize {
         CGSize(
             width: proposal.width ?? UIView.noIntrinsicMetric,
-            height: ZuvanoSpacing.homeActionButtonHeight
+            height: max(ZuvanoSpacing.homeActionButtonHeight, ZuvanoSpacing.minimumTouchTarget)
         )
     }
 }
@@ -66,7 +66,7 @@ final class PasteHostView: UIView {
 
         let configuration = UIPasteControl.Configuration()
         configuration.displayMode = .iconAndLabel
-        configuration.cornerStyle = .capsule
+        configuration.cornerStyle = .large
         if hasClipboardText {
             configuration.baseBackgroundColor = .tintColor
             configuration.baseForegroundColor = .white

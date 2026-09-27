@@ -601,7 +601,8 @@ final class AppFlowCoordinator {
     private func announceSuccess(for draft: ActionDraftSnapshot) {
         ZuvanoHaptics.success()
         let destination = draft.actionKind == .calendarEvent ? "Calendar" : "Reminders"
-        lastExecutionAnnouncement = "Added to \(destination)."
+        let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        lastExecutionAnnouncement = "Added \(title) to \(destination)."
     }
 
     private func announceFailure(for draft: ActionDraftSnapshot) {

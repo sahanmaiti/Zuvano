@@ -21,6 +21,7 @@ struct RootView: View {
                             value: coordinator.flow
                         )
                 }
+                .tint(ZuvanoColors.accent)
                 .onOpenURL { url in
                     coordinator.handleHandoffURL(url)
                 }
@@ -112,6 +113,7 @@ struct RootView: View {
                     deniedPermissionKinds: coordinator.deniedPermissionKinds,
                     canFinish: coordinator.canFinishReview,
                     showPermissionPreAlert: coordinator.showPermissionPreAlert,
+                    permissionPreAlertTitle: permissionPreAlertTitle(for: coordinator.pendingPermissionActionKinds),
                     permissionPreAlertMessage: permissionPreAlertMessage(for: coordinator.pendingPermissionActionKinds),
                     onUpdateDraft: { draft in
                         Task { await coordinator.updateDraft(draft) }
@@ -226,6 +228,22 @@ struct RootView: View {
 
     private var flowTransitionAnimation: Animation? {
         reduceMotion ? nil : .easeInOut(duration: 0.25)
+    }
+
+    private func permissionPreAlertTitle(for actionKinds: Set<ActionKind>) -> String {
+        let needsCalendar = actionKinds.contains(.calendarEvent)
+        let needsReminders = actionKinds.contains(.reminder)
+
+        switch (needsCalendar, needsReminders) {
+        case (true, true):
+            return "Calendar & Reminders access"
+        case (true, false):
+            return "Calendar access"
+        case (false, true):
+            return "Reminders access"
+        default:
+            return "Permission needed"
+        }
     }
 
     private func permissionPreAlertMessage(for actionKinds: Set<ActionKind>) -> String {

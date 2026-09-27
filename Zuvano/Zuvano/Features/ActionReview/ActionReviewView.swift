@@ -6,6 +6,7 @@ struct ActionReviewView: View {
     let deniedPermissionKinds: Set<PermissionKind>
     let canFinish: Bool
     let showPermissionPreAlert: Bool
+    let permissionPreAlertTitle: String
     let permissionPreAlertMessage: String
     let onUpdateDraft: (ActionDraftSnapshot) -> Void
     let onSkip: (UUID) -> Void
@@ -73,7 +74,7 @@ struct ActionReviewView: View {
                 SourceTextSheet(extractedText: text)
             }
         }
-        .alert("Allow access to continue", isPresented: Binding(
+        .alert(permissionPreAlertTitle, isPresented: Binding(
             get: { showPermissionPreAlert },
             set: { isPresented in
                 if !isPresented { onCancelPermissionPreAlert() }
@@ -84,14 +85,11 @@ struct ActionReviewView: View {
         } message: {
             Text(permissionPreAlertMessage)
         }
-        .confirmationDialog(
-            "Discard this conversation?",
+        .discardConversationConfirmation(
             isPresented: $showDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Discard", role: .destructive, action: onDiscard)
-            Button("Keep Reviewing", role: .cancel) {}
-        }
+            cancelTitle: "Keep Reviewing",
+            onDiscard: onDiscard
+        )
     }
 
     private var emptyState: some View {
@@ -102,6 +100,7 @@ struct ActionReviewView: View {
                 .zuvanoMetaStyle()
         } actions: {
             Button("Done", action: onDone)
+                .buttonStyle(.borderedProminent)
                 .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
                 .accessibilityHint("Returns home and removes this conversation from Zuvano.")
         }
@@ -131,10 +130,13 @@ struct ActionReviewView: View {
                     Spacer()
 
                     if intake.extractedText != nil {
-                        Button("View source") {
+                        Button {
                             showSourceText = true
+                        } label: {
+                            Label("View source", systemImage: "doc.text.magnifyingglass")
+                                .font(.subheadline.weight(.medium))
                         }
-                        .font(.subheadline)
+                        .foregroundStyle(ZuvanoColors.accent)
                     }
                 }
                 .listRowBackground(Color.clear)
@@ -167,7 +169,9 @@ struct ActionReviewView: View {
                                 } label: {
                                     Image(systemName: selectedIDs.contains(draft.id) ? "checkmark.circle.fill" : "circle")
                                         .font(.title3)
-                                        .foregroundStyle(selectedIDs.contains(draft.id) ? Color.accentColor : .secondary)
+                                        .foregroundStyle(
+                                            selectedIDs.contains(draft.id) ? ZuvanoColors.accent : Color.secondary
+                                        )
                                 }
                                 .buttonStyle(.plain)
                                 .frame(width: ZuvanoSpacing.minimumTouchTarget, height: ZuvanoSpacing.minimumTouchTarget)
@@ -200,10 +204,10 @@ struct ActionReviewView: View {
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         if draft.confirmationState == .rejected {
                             Button("Restore") { onRestore(draft.id) }
-                                .tint(.blue)
+                                .tint(ZuvanoColors.accent)
                         } else if DraftExecutionEligibility.canRetry(draft) {
                             Button("Retry") { onRetry(draft.id) }
-                                .tint(.blue)
+                                .tint(ZuvanoColors.accent)
                         } else if draft.confirmationState == .pending
                                     || (draft.confirmationState == .confirmed && draft.executionState == .notStarted) {
                             Button("Skip") { onSkip(draft.id) }
@@ -231,18 +235,35 @@ struct ActionReviewView: View {
                 }
             }
 
-            Section {
-                Button("Done", action: onDone)
-                    .frame(maxWidth: .infinity, minHeight: ZuvanoSpacing.minimumTouchTarget)
-                    .disabled(!canFinish)
-                    .accessibilityHint(
-                        canFinish
-                            ? "Returns home and removes this conversation from Zuvano."
-                            : "Finish creating, skipping, or resolving failed actions first."
-                    )
+            if !isSelecting {
+                Section {
+                    Button("Done", action: onDone)
+                        .frame(maxWidth: .infinity, minHeight: ZuvanoSpacing.minimumTouchTarget)
+                        .disabled(!canFinish)
+                        .accessibilityHint(
+                            canFinish
+                                ? "Returns home and removes this conversation from Zuvano."
+                                : "Finish creating, skipping, or resolving failed actions first."
+                        )
+                }
             }
         }
         .listStyle(.insetGrouped)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if isSelecting, !selectedIDs.isEmpty {
+                Button("Create Selected (\(selectedIDs.count))") {
+                    onCreateSelected(Array(selectedIDs))
+                    isSelecting = false
+                    selectedIDs.removeAll()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.bar)
+            }
+        }
     }
 
     private var permissionBanner: some View {
@@ -290,7 +311,7 @@ struct ActionReviewView: View {
             )
         }
 
-        if !drafts.isEmpty && readyCount > 0 {
+        if !isSelecting, !drafts.isEmpty, readyCount > 0 {
             ToolbarItem(placement: .primaryAction) {
                 if readyCount == 1, let draft = pendingDrafts.first(where: { DraftValidator.canCreate($0) }) {
                     Button(createButtonTitle(for: [draft])) { onCreate(draft.id) }
@@ -299,22 +320,13 @@ struct ActionReviewView: View {
                     Button(createAllTitle) { onCreateAllReady() }
                 }
             }
+            .sharedBackgroundVisibility(.hidden)
         }
 
         if drafts.count > 1 && readyCount > 1 && !isSelecting {
             ToolbarItem(placement: .automatic) {
                 Button("Select") {
                     isSelecting = true
-                }
-            }
-        }
-
-        if isSelecting && !selectedIDs.isEmpty {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Create Selected (\(selectedIDs.count))") {
-                    onCreateSelected(Array(selectedIDs))
-                    isSelecting = false
-                    selectedIDs.removeAll()
                 }
             }
         }
@@ -340,22 +352,29 @@ struct ActionReviewView: View {
         let calendarCount = readyDrafts.filter { $0.actionKind == .calendarEvent }.count
         let reminderCount = readyDrafts.filter { $0.actionKind == .reminder }.count
 
+        let total = readyDrafts.count
+
         switch (calendarCount, reminderCount) {
         case (1, 0):
             return "Add to Calendar"
         case (0, 1):
             return "Add Reminder"
+        case (1, 1):
+            return "Create 1 Event & 1 Reminder"
         case (let c, let r) where c > 0 && r > 0:
+            if c == 1 {
+                return "Create 1 Event & \(r) Reminders"
+            }
             if r == 1 {
                 return "Create \(c) Events & 1 Reminder"
             }
             return "Create \(c) Events & \(r) Reminders"
         case (let c, 0) where c > 1:
-            return "Add to Calendar"
+            return "Create \(c) Events"
         case (0, let r) where r > 1:
-            return "Add Reminder"
+            return "Create \(r) Reminders"
         default:
-            return "Create"
+            return "Create \(total) Items"
         }
     }
 }
@@ -400,6 +419,7 @@ struct ActionReviewView: View {
             deniedPermissionKinds: [],
             canFinish: false,
             showPermissionPreAlert: false,
+            permissionPreAlertTitle: "Calendar access",
             permissionPreAlertMessage: "",
             onUpdateDraft: { _ in },
             onSkip: { _ in },
@@ -437,6 +457,7 @@ struct ActionReviewView: View {
             deniedPermissionKinds: [],
             canFinish: true,
             showPermissionPreAlert: false,
+            permissionPreAlertTitle: "Calendar access",
             permissionPreAlertMessage: "",
             onUpdateDraft: { _ in },
             onSkip: { _ in },

@@ -14,16 +14,18 @@ struct ProcessingView: View {
 
             ProgressView()
                 .controlSize(.large)
+                .tint(ZuvanoColors.accent)
                 .accessibilityLabel(processingAccessibilityLabel)
 
             Text(statusCopy)
-                .zuvanoScreenHeadlineStyle()
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(ZuvanoColors.primaryText)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.updatesFrequently)
 
             Spacer()
         }
-        .padding(.horizontal)
+        .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .zuvanoContentBackground()
         .navigationTitle("Processing")
@@ -37,16 +39,11 @@ struct ProcessingView: View {
                 .accessibilityHint("Stops processing and discards this conversation.")
             }
         }
-        .confirmationDialog(
-            "Discard this conversation?",
+        .discardConversationConfirmation(
             isPresented: $showDiscardConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Discard", role: .destructive) {
-                onCancel()
-            }
-            Button("Keep Processing", role: .cancel) {}
-        }
+            cancelTitle: "Keep Processing",
+            onDiscard: onCancel
+        )
         .animation(reduceMotion ? nil : .default, value: intake.processingState)
         .onChange(of: intake.processingState) { _, newPhase in
             announcePhaseIfNeeded(newPhase)
@@ -102,6 +99,7 @@ struct ProcessingView: View {
             onCancel: {}
         )
     }
+    .tint(ZuvanoColors.accent)
 }
 
 #Preview("Screenshot Extraction") {
@@ -121,6 +119,7 @@ struct ProcessingView: View {
             onCancel: {}
         )
     }
+    .tint(ZuvanoColors.accent)
 }
 
 #Preview("Dark") {
@@ -141,6 +140,7 @@ struct ProcessingView: View {
         )
     }
     .preferredColorScheme(.dark)
+    .tint(ZuvanoColors.accent)
 }
 
 #Preview("Large Dynamic Type") {
@@ -161,4 +161,5 @@ struct ProcessingView: View {
         )
     }
     .dynamicTypeSize(.accessibility3)
+    .tint(ZuvanoColors.accent)
 }

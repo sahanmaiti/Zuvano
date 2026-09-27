@@ -8,12 +8,8 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: ZuvanoSpacing.section) {
-                VStack(spacing: ZuvanoSpacing.footnoteTop) {
-                    Text("Turn a conversation into Calendar events and Reminders.")
-                        .zuvanoScreenHeadlineStyle()
-                        .accessibilityAddTraits(.isHeader)
-                }
-                .padding(.top, ZuvanoSpacing.emptyStateVertical)
+                brandingHeader
+                    .padding(.top, ZuvanoSpacing.emptyStateVertical)
 
                 VStack(spacing: ZuvanoSpacing.actionStack) {
                     pasteButton
@@ -25,13 +21,32 @@ struct HomeView: View {
 
                 privacyLine
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 20)
             .padding(.bottom, ZuvanoSpacing.emptyStateVertical)
             .frame(maxWidth: .infinity)
         }
         .zuvanoContentBackground()
-        .navigationTitle("Zuvano")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var brandingHeader: some View {
+        VStack(spacing: 16) {
+            ZuvanoLogoMark()
+
+            Text("Zuvano")
+                .font(.largeTitle.bold())
+                .foregroundStyle(ZuvanoColors.primaryText)
+                .accessibilityAddTraits(.isHeader)
+
+            Text("Turn a conversation into\nCalendar events and Reminders.")
+                .font(.title3)
+                .foregroundStyle(ZuvanoColors.secondaryText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Zuvano. Turn a conversation into Calendar events and Reminders.")
     }
 
     /// Visible system `UIPasteControl` — required on iOS 16+ for authorized pasteboard access.
@@ -40,7 +55,7 @@ struct HomeView: View {
             onPaste(text)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: ZuvanoSpacing.homeActionButtonHeight)
+        .frame(minHeight: ZuvanoSpacing.minimumTouchTarget)
         .clipped()
         .accessibilityLabel("Paste")
         .accessibilityHint("Paste copied conversation text. iOS may ask to allow paste from the other app.")
@@ -50,7 +65,7 @@ struct HomeView: View {
         Button(action: onChoosePhoto) {
             HomeActionButtonLabel(title: "Choose Photo", systemImage: "photo.on.rectangle")
         }
-        .homeBorderedActionButtonStyle()
+        .homeSecondaryActionButtonStyle()
         .accessibilityLabel("Choose Photo")
         .accessibilityHint("Select a screenshot of a conversation.")
     }
@@ -59,7 +74,7 @@ struct HomeView: View {
         Button(action: onEnterText) {
             HomeActionButtonLabel(title: "Enter Text", systemImage: "text.alignleft")
         }
-        .homeBorderedActionButtonStyle()
+        .homeSecondaryActionButtonStyle()
         .accessibilityLabel("Enter Text")
         .accessibilityHint("Type or paste conversation text manually.")
     }
@@ -67,7 +82,9 @@ struct HomeView: View {
     private var shareHint: some View {
         Label {
             Text("Or share text or a screenshot to Zuvano from another app.")
-                .zuvanoMetaStyle()
+                .font(.subheadline)
+                .foregroundStyle(ZuvanoColors.secondaryText)
+                .multilineTextAlignment(.center)
         } icon: {
             Image(systemName: "square.and.arrow.up")
                 .foregroundStyle(ZuvanoColors.secondaryText)
@@ -79,9 +96,17 @@ struct HomeView: View {
     }
 
     private var privacyLine: some View {
-        Text("On-device. Your conversation stays on this iPhone.")
-            .zuvanoFootnoteStyle()
-            .accessibilityLabel("On-device. Your conversation stays on this iPhone.")
+        Label {
+            Text("On-device. Your conversation stays on this iPhone.")
+                .zuvanoFootnoteStyle()
+        } icon: {
+            Image(systemName: "lock.fill")
+                .font(.caption2)
+        }
+        .labelStyle(.titleAndIcon)
+        .foregroundStyle(ZuvanoColors.tertiaryText)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("On-device. Your conversation stays on this iPhone.")
     }
 }
 
@@ -93,6 +118,7 @@ struct HomeView: View {
             onEnterText: {}
         )
     }
+    .tint(ZuvanoColors.accent)
 }
 
 #Preview("Dark") {
@@ -104,6 +130,7 @@ struct HomeView: View {
         )
     }
     .preferredColorScheme(.dark)
+    .tint(ZuvanoColors.accent)
 }
 
 #Preview("Large Dynamic Type") {
@@ -115,4 +142,5 @@ struct HomeView: View {
         )
     }
     .dynamicTypeSize(.accessibility3)
+    .tint(ZuvanoColors.accent)
 }

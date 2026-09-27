@@ -11,27 +11,19 @@ struct ManualTextEntryView: View {
     let onCancel: () -> Void
 
     var body: some View {
-        ZStack {
-            Form {
-                Section {
-                    TextEditor(text: $text)
-                        .focused($isEditorFocused)
-                        .frame(minHeight: editorMinHeight)
-                        .accessibilityLabel("Conversation text")
-                        .accessibilityHint("Enter the conversation text to continue.")
-                } footer: {
-                    Text("Paste or type the conversation. Zuvano will read this text instead of the screenshot.")
-                        .zuvanoFootnoteStyle()
-                }
-            }
-
-            if isSubmitting {
-                ProgressView("Continuing…")
-                    .padding()
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .accessibilityLabel("Continuing with entered text.")
+        Form {
+            Section {
+                TextEditor(text: $text)
+                    .focused($isEditorFocused)
+                    .frame(minHeight: editorMinHeight)
+                    .accessibilityLabel("Conversation text")
+                    .accessibilityHint("Enter the conversation text to continue.")
+            } footer: {
+                Text("Paste or type the conversation. Zuvano will read this text instead of the screenshot.")
+                    .zuvanoLeadingFootnoteStyle()
             }
         }
+        .disabled(isSubmitting)
         .navigationTitle("Enter Text")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

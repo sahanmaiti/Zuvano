@@ -1,10 +1,16 @@
 # Zuvano: UI/UX Instructions
 
-> **Authoritative UI/UX specification for implementation.** Behavior and data rules remain governed by the product document set. If this file disagrees with product requirements, resolve: **Product → Feature → Architecture → Data Model → Technical Decisions → this UI/UX document.**
+> **Authoritative UI/UX specification for implementation.**
 >
-> Related: [Project Context](./00_PROJECT_CONTEXT.md) · [Product Spec](./01_PRODUCT_SPEC.md) · [Feature Spec](./04_FEATURE_SPEC.md) · [System Architecture](./02_SYSTEM_ARCHITECTURE.md) · [Data Model](./03_DATA_MODEL.md) · [Technical Decisions](./05_TECHNICAL_DECISIONS.md)
+> This document defines Zuvano's visual design language, interaction design, information architecture, accessibility, motion, and UI copy.
 >
-> **Scope of this document:** visual design, interaction design, information architecture, accessibility, motion, and copy. **Not** SwiftUI source code, view files, or component implementations.
+> **Authority:** Product → Feature → Architecture → Data Model → Technical Decisions → this UI/UX document.
+>
+> This document does **not** define SwiftUI source code, view-file structure, or implementation details beyond UI behavior and design tokens.
+>
+> **Design direction locked in this version:** **Native Apple × Calm Intelligence × Soft Precision.**
+>
+> Zuvano should feel like an Apple utility with a hint of intelligence. The intelligence is in what Zuvano understands, not in how loudly the interface advertises AI.
 
 ---
 
@@ -16,995 +22,2055 @@
 | Framework | SwiftUI |
 | Deployment | iOS 26.0 |
 | Development / test | iOS 27 |
-| Dependencies | Apple frameworks only (no third-party UI) |
-| Design references | Apple HIG; Liquid Glass used only on the functional layer |
+| Dependencies | Apple frameworks only; no third-party UI/dependencies |
+| Design references | Apple HIG; native iOS controls and Liquid Glass |
+| Visual target | Native, calm, precise, premium, restrained |
 
-Zuvano is **not**: a chatbot, memory/retrieval app, messaging client, calendar replacement, generic task manager, AI dashboard, SaaS console, conversation archive, or floating-orb assistant.
+Zuvano is **not**:
 
-**Core experience:**
+- a chatbot
+- a memory/retrieval app
+- a messaging client
+- a calendar replacement
+- a generic task manager
+- an AI dashboard
+- a SaaS console
+- a conversation archive
+- a floating-orb assistant
 
+### Core experience
+
+```text
+Conversation
+    ↓
+Understanding
+    ↓
+Action proposals
+    ↓
+User review / edit
+    ↓
+Explicit Create
+    ↓
+Native iOS Calendar / Reminder action
 ```
-Conversation → Understanding → Intent → User Review → Explicit Create → Native iOS Action
+
+### Core trust boundary
+
+> **Zuvano suggests → I review/edit → I create → iOS writes the action.**
+
+Zuvano must never imply that an action already exists in Calendar or Reminders until EventKit execution succeeds.
+
+---
+
+# 1. Design language
+
+## 1.1 North star
+
+### **Native Apple × Calm Intelligence × Soft Precision**
+
+The product should feel:
+
+- native
+- calm
+- intelligent
+- precise
+- trustworthy
+- lightweight
+- purposeful
+- human
+- premium
+- private
+
+The user should think:
+
+> “This is simple. It understands what I need. I can trust it.”
+
+Not:
+
+> “This is an AI app.”
+
+---
+
+## 1.2 Brand-to-product ratio
+
+Target approximately:
+
+```text
+90% Apple / native iOS
+10% Zuvano
 ```
 
-Preserve the distinction at all times:
+### Zuvano's 10%
 
-| Concept | UI meaning |
+- logo
+- Zuvano accent
+- restrained gradient
+- copy
+- subtle brand moments
+- overall visual personality
+
+### Apple's 90%
+
+- navigation
+- Lists
+- Forms
+- Sheets
+- buttons
+- typography
+- system colors
+- SF Symbols
+- accessibility behavior
+- system materials
+- interaction conventions
+
+Do not create custom UI merely to make the app look different.
+
+---
+
+# 2. Logo and brand identity
+
+The Zuvano logo establishes the brand personality:
+
+- rounded geometric Z
+- white mark
+- violet → periwinkle → blue gradient
+- soft, modern geometry
+
+The logo gradient is a **brand asset**, not the application's default UI color.
+
+## 2.1 Logo gradient
+
+```text
+Violet       #A681FE
+Periwinkle   #7C7CFC
+Blue         #515FFD
+```
+
+Use this for:
+
+- app icon
+- marketing material
+- onboarding/launch artwork if required
+- occasional subtle brand moments
+
+Do **not** use it for:
+
+- every button
+- list backgrounds
+- draft cards
+- navigation bars
+- every icon
+- gradient text
+- glass surfaces
+- decorative AI effects
+
+---
+
+# 3. Color system
+
+## 3.1 Base UI
+
+Use semantic iOS colors wherever possible.
+
+### Light appearance
+
+```text
+Background                    systemGroupedBackground
+Secondary background          secondarySystemGroupedBackground
+Primary text                  primary
+Secondary text                secondary
+Tertiary text                 tertiary
+Separator                     separator
+```
+
+Do not hard-code pure black/white for normal content.
+
+### Dark appearance
+
+Use the corresponding semantic system colors.
+
+Dark mode is a first-class design, not a light-mode inversion.
+
+---
+
+## 3.2 Zuvano accent
+
+### **Zuvano Indigo**
+
+```text
+#6366F1
+RGB 99 / 102 / 241
+```
+
+This is the single custom application accent.
+
+Use it for:
+
+- primary actions
+- selected/focused controls
+- interactive links
+- important active states
+- subtle selection tint
+- focused text cursor where appropriate
+- restrained brand moments
+
+Do not use it as a full-screen background or on every element.
+
+### Accent philosophy
+
+```text
+Zuvano Indigo
+      ↓
+Primary interaction
+      ↓
+Selected / focused
+      ↓
+Subtle active state
+```
+
+The interface must remain predominantly neutral.
+
+---
+
+## 3.3 Semantic colors
+
+### Success
+
+Use system green.
+
+Only use success styling when EventKit execution has actually succeeded.
+
+Example:
+
+```text
+✓ Created
+```
+
+### Warning
+
+Use system orange sparingly for attention states.
+
+Always pair with text and/or symbol.
+
+### Error
+
+Use system red for:
+
+- failed creation
+- pipeline failure
+- destructive discard
+
+### Important rule
+
+**State is never communicated through color alone.**
+
+Always combine:
+
+```text
+symbol + text + semantic color
+```
+
+---
+
+# 4. Visual hierarchy
+
+Every screen should follow:
+
+```text
+Brand / Context
+      ↓
+Primary content
+      ↓
+Supporting information
+      ↓
+Action
+```
+
+The interface should not feel like a dashboard.
+
+Avoid:
+
+- statistics
+- confidence scores
+- model labels
+- AI status chips
+- decorative metrics
+- excessive badges
+- “AI detected” banners
+
+---
+
+# 5. Typography
+
+## 5.1 Font
+
+Use the system SF font.
+
+No custom display font for MVP.
+
+SwiftUI system typography should be preferred over hard-coded font sizes.
+
+---
+
+## 5.2 Type hierarchy
+
+| Role | Style |
 |---|---|
-| AI interpretation | Invisible process; may surface calm status copy only |
-| Intent | Never shown as a first-class list of “intents” |
-| Action Draft | Visible **proposal** the user can edit, skip, or create |
-| Confirmed Action | Internal state on the path to EventKit, not a success badge |
-| Executed Action | Only state that may look **created** in Calendar / Reminders |
+| Navigation title | Large / inline system navigation title |
+| Screen headline | `title2` / `title3` |
+| Draft title | `headline` or emphasized `body` |
+| Metadata | `subheadline` |
+| Supporting/source text | `footnote` |
+| Button labels | System button styles |
 
-**Trust boundary (non-negotiable):**
+### Typography rules
 
-> Zuvano suggests → I review/edit → I **create** → iOS writes the Calendar event or Reminder.
-
-Never imply that an action already exists in Calendar or Reminders until `executionState == executed`.
-
----
-
-## 1. UX philosophy
-
-Zuvano should feel **native, calm, intelligent, precise, trustworthy, lightweight, premium, purposeful, and human**.
-
-Design for a person who shared a conversation and wants to leave with the right Calendar events and Reminders, quickly, privately, and in control.
-
-**Principles**
-
-1. **One job.** Turn conversation content into confirmable native actions.
-2. **Agency.** The user decides what is created. AI never creates.
-3. **Proposals, not products.** Drafts look provisional until EventKit succeeds.
-4. **Clarity over cleverness.** Plain language. No model jargon.
-5. **Familiarity.** Prefer system lists, forms, sheets, buttons, and materials.
-6. **Restraint.** Every surface must earn its place. No decorative AI chrome.
-7. **Recoverability.** Failures are local, explained, and retryable from the failed step.
-8. **Privacy posture.** On-device processing; no conversation archive UI.
+- Sentence case for normal copy.
+- Keep titles short and readable.
+- Allow wrapping.
+- Never sacrifice accessibility for fitting text on one line.
+- Avoid oversized “AI” marketing typography inside the app.
 
 ---
 
-## 2. Core interaction principles
+# 6. Spacing system
 
-1. **Capture is explicit.** Paste, photo, or Share Sheet; never background reading of other apps.
-2. **Processing is temporary.** Full-screen progress is a short modality, then Review.
-3. **Review is the product.** Action Review is the primary surface after capture.
-4. **Create is the irreversible verb.** Buttons that write to EventKit use **Create** / **Add to Calendar** / **Add Reminder**, not soft “Confirm.”
-5. **One create gesture per draft.** User taps Create → validate → `confirmed` → permission if needed → execute. Do not strand drafts in a long-lived “Confirmed” UI state unless blocked on permission.
-6. **Independent drafts.** Each draft can be pending, skipped, creating, created, or failed independently.
-7. **Approximation ≠ missing.** “About 7:00 PM” may be created if the concrete time is visible. A Calendar draft with no start date cannot.
-8. **Done does not destroy work.** Done / leave / purge only when the intake is terminal (see §20–22 and Data Model §9.1).
-9. **No auto-execute on launch recovery.** Interrupted drafts need an explicit Retry.
-10. **Status is never color-only.** Always pair color with text, symbol, and accessibility value.
+Use Apple's spacing rhythm.
 
----
-
-## 3. Information architecture
-
+```text
+4
+8
+12
+16
+20
+24
+32
+40
 ```
+
+Most custom spacing should live around:
+
+```text
+16 / 20 / 24 pt
+```
+
+Do not create arbitrary micro-grids.
+
+Prefer system List/Form spacing when available.
+
+---
+
+# 7. Corner radius and geometry
+
+Zuvano uses soft geometry without turning everything into a pill.
+
+### Rules
+
+- Prefer system component radii.
+- Custom surfaces: approximately 12–16 pt continuous corners.
+- System sheets and controls use native iOS geometry.
+- Avoid excessive capsules.
+- Avoid rounded cards nested inside rounded cards.
+
+The logo is rounded; the entire application does not need to become a collection of pills.
+
+---
+
+# 8. Iconography
+
+Use **SF Symbols only**.
+
+No third-party icon sets.
+
+Prefer monochrome or hierarchical rendering that matches surrounding text.
+
+### Core symbols
+
+| Meaning | Symbol |
+|---|---|
+| Calendar | `calendar` |
+| Calendar created | `calendar.badge.checkmark` |
+| Reminder | `checklist` |
+| Created | `checkmark.circle.fill` |
+| Paste | `doc.on.clipboard` |
+| Photo | `photo.on.rectangle` |
+| Share | `square.and.arrow.up` |
+| Processing | system `ProgressView` |
+| Attention | `exclamationmark.circle` |
+| Failure | `exclamationmark.triangle` |
+| Retry | `arrow.clockwise` |
+| Skip | `xmark` |
+| Restore | `arrow.uturn.backward` |
+| Source | `doc.plaintext` / `text.alignleft` |
+| Settings | `gear` |
+
+Do not use colorful icon illustrations as the product identity.
+
+---
+
+# 9. Materials and Liquid Glass
+
+Zuvano follows a strict two-layer model.
+
+| Layer | Rule |
+|---|---|
+| Functional chrome | Native Liquid Glass/system materials are allowed |
+| Content | Solid/semantic system surfaces; no custom glass |
+
+## Functional layer
+
+Liquid Glass may appear naturally through:
+
+- navigation bars
+- toolbars
+- system sheets
+- system alerts
+- native system controls
+
+## Content layer
+
+Do **not** use Liquid Glass for:
+
+- draft cards
+- proposal rows
+- chat bubbles
+- content backgrounds
+- floating AI panels
+- glass FABs
+- source text content
+
+### Principle
+
+> **iOS provides the glass. Zuvano provides the content.**
+
+If Reduce Transparency is enabled, chrome must remain usable with opaque system surfaces.
+
+---
+
+# 10. Information architecture
+
+```text
 Home / Capture
-  └─ Processing (modal full-screen within stack)
-       └─ Action Review          ← primary product surface
-            ├─ Edit Draft (sheet)
-            ├─ Source Text (sheet, optional peek)
-            ├─ Permission pre-alert → system alert
-            └─ Per-draft execution feedback (inline)
+    └─ Processing
+         └─ Action Review
+              ├─ Edit Draft sheet
+              ├─ Source Text sheet
+              ├─ Permission pre-alert
+              └─ Per-draft execution feedback
 ```
 
-**Out of IA (MVP)**
+## Out of MVP
 
-- Tab bar
-- Conversation history / archive browser
-- Chat thread
-- Intent browser
-- Confidence / model debug screens
-- Settings beyond what the system Settings app provides for permissions (optional minimal About later; not required for MVP)
-- Calendar browsing / conflict UI
+- tab bar
+- conversation archive
+- chat thread
+- intent browser
+- model/debug screens
+- confidence screens
+- Calendar browsing
+- duplicate detection UI
+- memory/history UI
+- generic settings dashboard
 
 ---
 
-## 4. Navigation architecture
+# 11. Navigation architecture
 
 | Decision | Choice |
 |---|---|
 | Root | `NavigationStack` |
-| Tabs | **None** for MVP |
-| Capture → Processing | Replace / push Processing as the active root destination for the intake |
-| Processing → Review | Transition to Action Review (animated; Reduce Motion → crossfade / instant) |
-| Edit Draft | **Sheet** with Form (not a deep push hierarchy) |
-| Source text peek | Sheet |
-| Return Home | Explicit Done (when terminal) or Discard (with confirmation) |
+| Tabs | None |
+| Capture → Processing | Active intake destination |
+| Processing → Review | Animated transition |
+| Edit Draft | Sheet |
+| Source Text | Sheet |
+| Return Home | Explicit Done when terminal |
+| Abandon intake | Discard with confirmation |
 
-**Rules**
+Prefer sheets for narrowly scoped tasks.
 
-- Prefer sheets for narrowly scoped tasks (edit, source peek).
-- Do not nest modal-on-modal except a system alert over the permission pre-alert, or a discard confirmation over Review.
-- Share Extension opens the main app into Processing for the handed-off intake, not into a chat UI.
+Do not create deep navigation hierarchies for editing one action.
 
 ---
 
-## 5. Screen inventory
+# 12. Screen inventory
 
 | ID | Screen | Purpose |
 |---|---|---|
-| S1 | Home / Capture | Idle entry; start an intake |
-| S2 | Processing | OCR / understanding / draft generation progress |
-| S3 | Action Review | Inspect, edit, skip, create drafts |
-| S4 | Edit Draft | Correct fields before create |
-| S5 | Source Text | Read-only peek at extracted text for this intake |
-| S6 | Nothing Actionable | Empty valid result |
-| S7 | Pipeline Failure | Failed stage with Retry / Discard / Manual text |
-| S8 | Permission Pre-alert | Brief explanation before system Calendar/Reminders prompt |
-| S9 | Share Extension | Capture-only; open main app |
-
-Alerts / confirmation dialogs are not separate “screens” but are specified in §42–43.
+| S1 | Home / Capture | Start an intake |
+| S2 | Processing | OCR / understanding / draft generation |
+| S3 | Action Review | Inspect, edit, skip, create |
+| S4 | Edit Draft | Correct fields before creation |
+| S5 | Source Text | Read-only source peek |
+| S6 | Nothing Actionable | Valid result with no actionable drafts |
+| S7 | Pipeline Failure | Recover from failed processing |
+| S8 | Permission Pre-alert | Explain upcoming system permission |
+| S9 | Share Extension | Capture-only handoff |
 
 ---
 
-## 6. Screen hierarchy
+# 13. State architecture
 
-**Primary:** Action Review (after a successful pipeline).
-
-**Secondary:** Home / Capture (entry and return).
-
-**Transient:** Processing, Edit sheet, Source sheet, permission pre-alert, system alerts.
-
-**Terminal outcomes on Review:** all drafts skipped; all created; mix resolved (created / skipped / failed-with-retry-dismissed) → Done returns Home and purges per Data Model.
-
----
-
-## 7. State architecture (presentation)
-
-Map product/data states to UI without inventing extra product states.
-
-### 7.1 App / intake presentation states
+## 13.1 Intake presentation states
 
 | UI state | When | Screen |
 |---|---|---|
-| `idle` | No active intake | S1 Home |
-| `processing` | Intake `importing`…`generatingDrafts` | S2 |
-| `review` | Intake `readyForReview` with ≥1 draft | S3 |
-| `emptyActionable` | Intake `readyForReview` && drafts empty | S6 |
-| `pipelineFailed` | Intake `failed` | S7 |
-| `permissionNeeded` | Presentation flag; Intake remains `readyForReview` | Banner / inline on S3 |
+| `idle` | No active intake | S1 |
+| `processing` | Intake is being imported/understood/generated | S2 |
+| `review` | Ready with ≥1 draft | S3 |
+| `emptyActionable` | Ready with no drafts | S6 |
+| `pipelineFailed` | Intake failed | S7 |
+| `permissionNeeded` | Permission required during Review | Inline/banner on S3 |
 
-### 7.2 Draft presentation states (per row)
+---
 
-| UI label | Underlying | Visual |
+## 13.2 Draft presentation states
+
+| UI label | Underlying state | Visual |
 |---|---|---|
-| Proposal | `pending` + `notStarted` | Provisional row; Create available if valid |
-| Needs attention | `pending` + invalid required fields | Inline validation; Create disabled for that draft |
-| About… | `ambiguous == true` with values present | Human footnote; Create allowed |
-| Skipped | `rejected` | Dimmed; Restore available |
-| Creating… | `confirmed` + `executing` | Progress on row; not success |
-| Waiting for access | `confirmed` + `notStarted` + permission denied | Inline + Open Settings |
-| Created | `confirmed` + `executed` | Success text + SF Symbol check **only here** |
-| Couldn’t create | `confirmed` + `failed` | Error + Retry |
+| Proposal | pending + notStarted | Normal provisional row |
+| Needs attention | pending + invalid required fields | Inline validation |
+| About… | ambiguous with required values present | Human-readable ambiguity footnote |
+| Skipped | rejected | Dimmed + Restore |
+| Creating… | confirmed + executing | Inline progress; never success |
+| Waiting for access | confirmed + notStarted + permission denied | Access message + Open Settings |
+| Created | confirmed + executed | Success text + check symbol |
+| Couldn't create | confirmed + failed | Error text + Retry |
 
-**Do not** show a long-lived “Confirmed” badge that implies completion without EventKit success.
-
-### 7.3 Selection mode (batch create)
-
-- Enter **Select** from the toolbar.
-- Use **leading** selection controls (system edit/select style), **never trailing checkmarks** on proposals.
-- Trailing checkmarks / filled success tints are reserved for **Created** (`executed`) only.
-- Exit Select mode after create attempt or Cancel.
+Never show a long-lived “Confirmed” badge.
 
 ---
 
-## 8. Empty states
+# 14. Selection mode
 
-### Home (S1)
+Batch selection must be visually distinct from creation success.
 
-- Title: **Zuvano**
-- Short line: **Turn a conversation into Calendar events and Reminders.**
-- Primary actions: **Paste**, **Choose Photo**
-- Secondary hint: **Or share text or a screenshot to Zuvano from another app.**
-- No chatbot greeting, no suggested prompts grid, no “Ask anything.”
+### Rules
 
-### Nothing Actionable (S6)
+- Enter Select from toolbar.
+- Use **leading** selection controls.
+- Never use trailing checkmarks to mean “selected.”
+- Trailing checkmarks are reserved for **Created**.
+- Exit Select mode after the create attempt or Cancel.
 
-- `ContentUnavailableView` pattern.
-- Title: **Nothing to create**
-- Description: **Zuvano didn’t find anything for you to add to Calendar or Reminders.**
-- Action: **Done** (terminal; purge intake)
-
-### All skipped
-
-- On Review: short status that every proposal was skipped.
-- Action: **Done**
+Selection is not execution.
 
 ---
 
-## 9. Loading / processing states (S2)
+# 15. Home / Capture — S1
 
-Full-screen calm progress. One status line that updates by phase:
+## Purpose
+
+The Home screen is intentionally minimal.
+
+### Content
+
+```text
+Zuvano
+
+Turn a conversation into
+Calendar events and Reminders.
+
+[ Paste ]
+
+[ Choose Photo ]
+
+[ Enter Text ]
+
+Or share text or a screenshot to Zuvano
+from another app.
+
+On-device. Your conversation stays on this iPhone.
+```
+
+### Action hierarchy
+
+**Primary**
+
+- Paste
+
+**Secondary**
+
+- Choose Photo
+- Enter Text
+
+**Supporting**
+
+- Share hint
+
+### Visual treatment
+
+- Neutral system grouped background.
+- Large but restrained Zuvano title.
+- No giant logo dominating the screen.
+- A subtle Zuvano Indigo/gradient brand moment is acceptable.
+- Buttons should use native system hierarchy rather than custom neon gradients.
+- Do not turn the home screen into an AI landing page.
+
+### Important
+
+The app must retain all three capture paths:
+
+- Paste
+- Choose Photo
+- Enter Text
+
+Share Sheet remains an additional capture path.
+
+---
+
+# 16. Processing — S2
+
+Processing is temporary and calm.
+
+### Header
+
+```text
+Cancel                 Processing
+```
+
+### Center
+
+Use system `ProgressView`.
+
+Status changes by phase:
 
 | Phase | Copy |
 |---|---|
-| Importing / extracting (text) | **Reading text…** |
-| Extracting (image) | **Reading the screenshot…** |
+| Text extraction | **Reading text…** |
+| Image extraction | **Reading the screenshot…** |
 | Understanding | **Understanding the conversation…** |
-| Generating drafts | **Preparing actions…** |
+| Draft generation | **Preparing actions…** |
 
-**Rules**
+### Rules
 
-- No chat bubbles, typing indicators, token streams, orb, shimmer “AI” brand marks, or fake transcript.
-- Show a determinate spinner/progress only if duration is known; otherwise indeterminate system `ProgressView`.
-- **Cancel** in the toolbar → if work would be lost, confirmation dialog → Discard.
-- VoiceOver: announce phase changes politely (live update), not only a static “Loading.”
+Do not use:
+
+- AI orb
+- glowing sphere
+- chat bubbles
+- typing indicator
+- token streams
+- shimmer effects
+- fake transcript
+- animated AI logo
+- model name
+- confidence score
+
+Processing should communicate:
+
+> “Work is happening.”
+
+Not:
+
+> “Look at our AI.”
 
 ---
 
-## 10. No-actionable-content state
+# 17. Enter Text — capture UI
 
-Valid outcome, **not** an error (Feature Spec F5/F6; Data Model “nothing actionable”).
+Manual text entry is a first-class capture path.
 
-- Use S6 empty state.
-- Do not offer Retry as if the pipeline failed (unless the user wants to start over with new content from Home after Done).
-- Do not say “AI failed.”
+### Header
+
+```text
+Cancel                  Enter Text
+```
+
+### Primary content
+
+A large native text editor with comfortable margins.
+
+### Empty helper copy
+
+> **Paste or type the conversation. Zuvano will read this text instead of the screenshot.**
+
+### Continue
+
+Disabled until usable text exists.
+
+Once text is entered:
+
+> **Continue**
+
+becomes the primary action.
+
+### Keyboard
+
+Use the system keyboard.
+
+Do not attempt to recreate or style the keyboard.
+
+### Focus
+
+TextEditor should receive focus when the screen appears.
 
 ---
 
-## 11. Action Review experience (S3): core UX
+# 18. Source Text — S5
 
-**User question this screen answers:**
+Source is evidence, not a conversation UI.
 
-> “What did Zuvano find that I might want to do?”
+### Presentation
 
-### Layout
+Native sheet.
 
-- Native inset grouped `List`.
-- Optional header: short context (**3 proposed actions**) and a text button **View source** when `extractedText` exists.
-- Rows = Action Drafts only (never raw Intents).
-- Sticky toolbar / bottom bar for primary create actions when appropriate (system toolbar preferred).
+### Header
 
-### What each draft communicates
+```text
+Source                         Done
+```
 
-| Field | How shown |
-|---|---|
-| What | Primary title |
-| When | Secondary line; prefix **About** when `ambiguous` |
-| Where | Secondary / tertiary if present |
-| Who | Secondary / tertiary if present |
-| Action type | Leading SF Symbol + accessibility label (Calendar event / Reminder) |
-| Source context | Short quoted `sourcePhrase` in secondary style; full phrase in accessibility value if truncated |
-| Ambiguity | Footnote: **About 7:00 PM, check before creating.** |
-| Missing required | Footnote in destructive/secondary emphasis: **Add a start time to create this event.** |
-| Editable | Tap row or Edit control → S4 |
-| Create / Skip | See §14 and row actions below |
-| Execution state | Trailing **text + symbol**; never color alone |
+### Content
 
-### Row interaction model
+Read-only extracted text.
+
+Example:
+
+> “Yeah Friday works. Let's meet around 7 at the café. Remind me Thursday to call Arjun.”
+
+### Rules
+
+- No chat bubbles.
+- No sender avatars.
+- No AI annotations.
+- No intent highlights.
+- No confidence markers.
+- No conversation history.
+- Source belongs only to the current intake.
+
+The source sheet should feel like a simple document/text peek.
+
+---
+
+# 19. Action Review — S3
+
+## This is the product's primary surface.
+
+The screen answers:
+
+> **“What did Zuvano find that I might want to do?”**
+
+### Header
+
+```text
+Cancel                    Review
+```
+
+or the native navigation equivalent.
+
+### Context line
+
+```text
+2 proposed actions                         View source
+```
+
+The count refers to proposals that have not yet been executed.
+
+Do not label executed items as “proposed.”
+
+---
+
+# 20. Review list design
+
+Use a native **inset grouped List**.
+
+This is the primary visual decision for Review.
+
+### Do not use
+
+- dashboard cards
+- giant floating cards
+- glass proposal cards
+- AI panels
+- neon backgrounds
+- decorative gradient containers
+
+### Use
+
+- native List
+- semantic system backgrounds
+- system separators
+- comfortable row spacing
+- SF Symbols
+- clear hierarchy
+
+---
+
+# 21. Draft row anatomy
+
+Each proposal communicates:
+
+```text
+Action type
+Title
+When
+Where / Who
+Source phrase
+Ambiguity or validation if needed
+Available interaction
+Execution state
+```
+
+### Example Calendar proposal
+
+```text
+[calendar]  Meet at the café
+             Friday · About 7:00 PM
+             Café near campus
+
+             “Let's meet around 7…”
+
+             About 7:00 PM, check before creating.
+```
+
+### Example Reminder
+
+```text
+[checklist]  Call Arjun
+             Thursday
+
+             “Also remind me Thursday…”
+```
+
+---
+
+# 22. Row interaction model
 
 | Gesture | Result |
 |---|---|
-| Tap row | Open Edit Draft sheet |
-| Swipe trailing | **Skip** |
-| Swipe leading | **Edit** (optional if tap already edits) |
-| Context menu | Create (if valid), Edit, Skip / Restore, View source |
-| Toolbar Select | Enter selection mode for batch create |
+| Tap row | Open Edit Draft |
+| Swipe trailing | Skip |
+| Swipe leading | Edit, optional |
+| Context menu | Create / Edit / Skip / Restore / Source as applicable |
+| Toolbar Select | Batch selection |
 
-**Do not** put Create + Edit + Skip as three equally prominent buttons on every row. Prefer:
+Do not put three equally prominent buttons on every row.
 
-- Tap → Edit
-- Swipe / menu → Skip
-- Toolbar → **Create All Ready** / **Create Selected**
-- Single-draft intakes may show a prominent **Create** on the row or as the sole toolbar primary
+Prefer:
 
-### Selection / batch
+```text
+Tap → Edit
+Swipe/menu → Skip
+Toolbar → Create All Ready
+```
 
-- **Create All Ready** creates every draft that is pending, valid, and not skipped.
-- If some drafts are invalid, do **not** silently skip them without explanation. Prefer:
-  - Button title **Create 3 Ready**, and
-  - Subtitle or alert: **2 need a start time.**
-- **Create Selected** only in Select mode; selection chrome is leading, not trailing checkmarks.
+A single-draft intake may expose a prominent Create action.
 
 ---
 
-## 12. Action Draft presentation
+# 23. Proposal visual language
 
-**Visual language of a proposal**
+A proposal is provisional.
 
-- Standard list row background (content layer, no Liquid Glass).
-- Leading symbol in secondary/primary label color, not a neon glow.
-- Title: `headline` / body emphasized.
-- Meta: `subheadline` / `footnote`, secondary label color.
-- Source phrase: footnote, tertiary / secondary; quote marks optional.
+### Proposal
 
-**Created row**
+- normal row background
+- normal primary title
+- secondary metadata
+- leading SF Symbol
+- no green check
+- no “Created” text
+- no success tint
+- no celebration
 
-- Trailing: **Created** with `checkmark.circle.fill` (or calendar/reminder equivalent).
-- May use a subtle success tint **only** on the status accessory, not a whole-card celebration.
-- Row remains readable; do not remove the draft until Done/purge.
+### Created
 
-**Skipped row**
+Only after EventKit succeeds:
 
-- Reduced opacity or secondary styling.
-- Label **Skipped**; affordance **Restore**.
+```text
+✓ Created
+```
 
-**Failed row**
+with system green + text + symbol.
 
-- **Couldn’t create** + short reason + **Retry**.
+### Skipped
+
+```text
+Skipped
+Restore
+```
+
+with reduced emphasis.
+
+### Failed
+
+```text
+Couldn't create
+Retry
+```
+
+with clear error styling.
 
 ---
 
-## 13. Action editing experience (S4)
+# 24. Ambiguity
 
-**Presentation:** modal sheet, Form.
+Ambiguity should be expressed in plain language.
 
-**Fields**
+Example:
+
+> **About 7:00 PM, check before creating.**
+
+Do not display:
+
+- confidence percentages
+- confidence bars
+- AI scores
+- probability meters
+- “94% sure”
+- model reasoning
+
+### Rule
+
+Approximation is not the same as missing data.
+
+If a concrete value is visible and usable, the draft can be created.
+
+---
+
+# 25. Missing required data
+
+For a Calendar event without a start:
+
+> **Add a start time to create this event.**
+
+Create is disabled for that draft.
+
+Do not hide the draft.
+
+Do not silently infer a date/time.
+
+---
+
+# 26. Batch creation
+
+### All ready
+
+If every pending valid draft can be created:
+
+```text
+Create 2 Items
+```
+
+or, for a mixed batch:
+
+```text
+Create 1 Event & 1 Reminder
+```
+
+### Partial readiness
+
+If some drafts are invalid:
+
+```text
+Create 3 Ready
+```
+
+with supporting text:
+
+> **2 need a start time.**
+
+Do not silently skip invalid drafts.
+
+### Selected
+
+In Select mode:
+
+```text
+Create Selected (2)
+```
+
+Selection controls are leading.
+
+---
+
+# 27. Create interaction
+
+Create is the trust boundary.
+
+### Single-draft flow
+
+```text
+Create
+  ↓
+Validate
+  ↓
+confirmed
+  ↓
+Permission if needed
+  ↓
+executing
+  ↓
+EventKit
+  ↓
+Created / Couldn't create
+```
+
+### UI terminology
+
+Use:
+
+- Create
+- Add to Calendar
+- Add Reminder
+- Create N Items
+- Skip
+- Restore
+- Retry
+
+Do not use:
+
+- Confirm
+- Approve
+- Accept
+- Execute
+- Run AI
+- Generate
+
+---
+
+# 28. Calendar action UX
+
+### Leading symbol
+
+`calendar` / `calendar.badge.plus`
+
+### Create wording
+
+Use:
+
+- **Add to Calendar**
+- **Create Event**
+
+depending on context.
+
+### Requirements
+
+A Calendar draft must have a visible start date/time.
+
+If end is missing, product-defined default duration may be applied.
+
+### After execution
+
+Show:
+
+```text
+Created
+```
+
+with a success symbol.
+
+Optional:
+
+> Open in Calendar
+
+only if a supported system deep link is available.
+
+Do not read existing Calendar events for duplicate detection.
+
+---
+
+# 29. Reminder action UX
+
+### Leading symbol
+
+`checklist` / `reminder.bell`
+
+### Create wording
+
+Use:
+
+- **Add Reminder**
+- **Create Reminder**
+
+Due date is optional.
+
+If absent:
+
+> No due date
+
+may be shown as secondary metadata.
+
+After execution:
+
+```text
+Created
+```
+
+Optional:
+
+> Open in Reminders
+
+if supported.
+
+Do not read existing Reminders for duplicate detection.
+
+---
+
+# 30. Mixed batches
+
+For mixed Calendar + Reminder batches, the primary action should clearly describe both stores.
+
+Example:
+
+```text
+Create 2 Events & 1 Reminder
+```
+
+If the label becomes too long at large Dynamic Type sizes, visually shorten it to:
+
+```text
+Create
+```
+
+while VoiceOver retains the full semantic label.
+
+---
+
+# 31. Edit Draft — S4
+
+Edit is a native sheet.
+
+### Header
+
+```text
+Cancel                 Edit Action
+```
+
+### Form fields
 
 | Field | Control |
 |---|---|
 | Title | TextField |
-| Type | Picker: **Calendar Event** / **Reminder** |
-| Starts | DatePicker (required for Calendar Event) |
-| Ends | DatePicker optional (Calendar); default duration applied if missing at create time |
-| Due | DatePicker optional (Reminder) |
+| Type | Picker: Calendar Event / Reminder |
+| Starts | DatePicker |
+| Ends | DatePicker |
+| Due | DatePicker |
 | Location | TextField |
 | Person | TextField |
 | Notes | TextField / TextEditor |
-| Original phrasing | Read-only footnote when ambiguous or helpful (`rawExpression`) |
+| Original phrasing | Read-only footnote where useful |
 
-**Rules**
+### Rules
 
-- Save / Done on the sheet **updates the draft only**; never executes EventKit.
-- Changing Reminder → Calendar Event: require start date before Create becomes available.
-- Clearing start on a Calendar draft: Create disabled; show validation.
-- Resolving ambiguity (user picks an exact time): set `ambiguous = false`.
-- Validate on save and again before Create (Feature Spec F7/F9).
+- Save/Done only updates the draft.
+- It never writes to EventKit.
+- Validate again before Create.
+- Changing Reminder → Calendar requires a start date before creation.
+- Clearing a Calendar start disables Create.
+- Resolving ambiguity sets `ambiguous = false`.
 
----
-
-## 14. Confirmation / Create experience
-
-Treat Create as the trust boundary.
-
-### User-facing verbs
-
-| Do say | Don’t say |
-|---|---|
-| **Create**, **Add to Calendar**, **Add Reminder**, **Create 3 Items** | Confirm, Approve, Accept, Run AI, Execute |
-| **Skip** | Delete forever (unless discarding whole intake) |
-| **Restore** | Undelete |
-
-Internal docs may still say “confirmation”; UI copy uses **Create**.
-
-### Create path (single draft)
-
-1. Validate required fields.
-2. If invalid → stay proposal; show why.
-3. Set confirmed → request permission if needed → persist `executing` → EventKit.
-4. Update row to Creating… then Created or Couldn’t create.
-
-### Ambiguous create
-
-- Allowed when required values are present and **visible**.
-- Optional lightweight confirmation dialog only if useful: **Create using About 7:00 PM?**. Buttons: **Create**, **Edit**, **Cancel**. Prefer not to interrupt if the About footnote is already clear on the row.
-
-### Permission denied
-
-- Draft stays confirmed + notStarted (not executing).
-- Show **Waiting for access** + **Open Settings**.
-- Do not mark as Created.
+Use a native `Form`.
 
 ---
 
-## 15. Calendar action UX
+# 32. Permission UX
 
-- Leading symbol: `calendar` / `calendar.badge.plus`.
-- Create copy when only calendar drafts: **Add to Calendar** / **Create Event**.
-- Require visible start date/time.
-- Default duration if end missing (product behavior); do not ask unless editing.
-- After Created: status **Created**; optional menu **Open in Calendar** if a system URL/API is available without reading other events for duplicates.
-- Never browse or match existing events for “duplicate intelligence.”
+Request Calendar/Reminders permission lazily when the user first chooses Create.
 
----
+### Optional pre-alert
 
-## 16. Reminder action UX
+Explain the benefit briefly.
 
-- Leading symbol: `checklist` / `reminder.bell`.
-- Create copy when only reminders: **Add Reminder** / **Create Reminder**.
-- Due date optional; show **No due date** as secondary if absent.
-- After Created: **Created**; optional **Open in Reminders** if available.
-- Never read existing reminders for duplicate detection.
+Example:
 
-### Mixed batch
+> **Calendar access**  
+> Zuvano adds events you approve to Calendar.
 
-Toolbar label should name both stores when needed, e.g. **Create 2 Events & 1 Reminder**.
+Button:
 
----
+> **Continue**
 
-## 17. Permission UX
+Then show Apple's system permission prompt.
 
-**When:** First Create that needs Calendar and/or Reminders access (lazy).
+Do not use a custom “Allow” button that imitates the system prompt.
 
-**Pre-alert (optional but recommended when first requesting)**
+### Denied
 
-- Short explanation of benefit.
-- **One** button: **Continue** (not Allow).
-- Opens the system permission alert.
-- Purpose strings (Info.plist) must be specific, e.g.:
-  - Calendar: **Zuvano adds events you approve to Calendar.**
-  - Reminders: **Zuvano adds reminders you approve to Reminders.**
+Show inline:
 
-**Denied**
+> **Calendar access is off.**
 
-- Inline on Review + Open Settings.
-- Drafts remain editable/skippable.
-- Do not re-prompt in a loop.
+with:
 
-**Photos**
+> **Open Settings**
 
-- Prefer `PhotosPicker` (no library permission) for Choose Photo.
+Do not repeatedly prompt.
+
+Drafts remain editable and skippable.
 
 ---
 
-## 18. Error UX
+# 33. Success UX
 
-| Kind | Presentation |
-|---|---|
-| Field validation | Inline under field / row footnote |
-| Pipeline failure | S7 with Retry + Discard (+ Manual text for OCR) |
-| Per-draft EventKit failure | Row status + Retry |
-| Permission denied | Inline + Settings |
-| Unsupported / invalid input | S7 or Home alert; Discard |
+Success should be quiet.
 
-**Copy rules:** no blame, no “Oops,” no “We,” explain next step (HIG Writing).
+### Created row
+
+```text
+Meeting
+Friday · 7:00 PM
+Café near campus
+
+✓ Created
+```
+
+Use:
+
+- system green
+- `checkmark.circle.fill`
+- subtle state transition
+- optional light success haptic
+- VoiceOver announcement
+
+Do not use:
+
+- confetti
+- full-screen celebration
+- giant green cards
+- fireworks
+- animated success logos
+
+### Accessibility announcement
+
+Example:
+
+> **Added Meet at the café to Calendar.**
 
 ---
 
-## 19. Retry UX
+# 34. Partial execution
 
-| Failure | UI action | Re-enters |
+Created, failed, skipped, and pending drafts can coexist.
+
+Example:
+
+```text
+✓ Created
+Couldn't create   Retry
+Skipped            Restore
+Proposal
+```
+
+Keep the user on Review.
+
+The toolbar reflects remaining actionable drafts.
+
+Do not hide successful rows immediately.
+
+---
+
+# 35. Done behavior
+
+Done means the intake is terminal.
+
+A terminal intake has no unresolved work.
+
+Depending on product state, drafts are:
+
+- Created
+- Skipped
+- Failed with retry dismissed / accepted as terminal
+
+### Important
+
+Done must not silently destroy pending work.
+
+If unresolved drafts would be lost:
+
+> **Discard remaining?**
+
+Actions:
+
+- Discard
+- Keep Reviewing
+
+Once terminal:
+
+> **Done**
+
+returns Home and purges the intake according to the privacy/data rules.
+
+---
+
+# 36. Skipped state
+
+Skipped is not deletion.
+
+### Visual
+
+- reduced emphasis
+- text: **Skipped**
+- action: **Restore**
+
+### Restore
+
+Restores:
+
+```text
+rejected → pending
+```
+
+A skipped proposal remains recoverable until the intake is purged.
+
+---
+
+# 37. Interrupted execution
+
+If a draft was executing when the app was interrupted:
+
+### If nativeIdentifier exists
+
+Treat as Created.
+
+### If nativeIdentifier does not exist
+
+Show:
+
+> **Creation was interrupted. Retry when you're ready.**
+
+Never automatically retry EventKit.
+
+---
+
+# 38. Empty / Nothing Actionable — S6
+
+This is a valid result, not an error.
+
+Use a quiet native empty state.
+
+### Title
+
+> **Nothing to create**
+
+### Description
+
+> **Zuvano didn't find anything for you to add to Calendar or Reminders.**
+
+### Action
+
+> **Done**
+
+Do not say:
+
+- AI failed
+- No intent detected
+- Confidence too low
+- Nothing smart found
+
+---
+
+# 39. Pipeline failure — S7
+
+Use a native, calm recovery surface.
+
+## OCR failure
+
+### Title
+
+> **Couldn't read the screenshot**
+
+Actions:
+
+- Try Again
+- Enter Text
+- Discard
+
+## Understanding / draft generation failure
+
+### Title
+
+> **Couldn't prepare actions**
+
+Actions:
+
+- Try Again
+- Discard
+
+Never expose model internals.
+
+---
+
+# 40. Retry behavior
+
+| Failure | Action | Re-entry |
 |---|---|---|
-| OCR | **Try Again** / **Enter Text** | extraction |
-| Understanding | **Try Again** | understanding |
-| Draft generation | **Try Again** | draft generation |
-| EventKit | **Retry** on that row | that draft only |
+| OCR | Try Again | Extraction |
+| OCR | Enter Text | Manual text |
+| Understanding | Try Again | Understanding |
+| Draft generation | Try Again | Draft generation |
+| EventKit | Retry | That draft only |
 
-Never Restart from scratch if `extractedText` already exists, unless the user Discards and starts a new capture.
-
----
-
-## 20. Interrupted / recovery UX
-
-On launch, if a draft is `executing`:
-
-- With `nativeIdentifier` → mark Created (no EventKit call).
-- Without → mark Couldn’t create / interrupted; copy: **Creation was interrupted. Retry when you’re ready.**
-- **Never** auto-Retry EventKit.
-
-If an intake was mid-processing and recovered as `failed`, show S7 with the correct failed stage.
+If extracted text already exists, do not restart from scratch unnecessarily.
 
 ---
 
-## 21. Partial execution UX
+# 41. Image / OCR UX
 
-- Keep the user on Action Review.
-- Created rows stay Created; failed rows offer Retry; pending remain creatable.
-- Toolbar reflects remaining ready drafts.
-- **Done** stays disabled until every draft is terminal: Created, Skipped, or Failed with retry dismissed (user chooses **Dismiss** / Done path that accepts leaving failures), matching Data Model §9.1.
-- Offer **Discard Remaining** only with confirmation if pending drafts would be lost.
+Choose Photo or share an image.
 
----
+Processing:
 
-## 22. Success UX
+> **Reading the screenshot…**
 
-- Prefer quiet inline **Created** status over modal celebration.
-- Light haptic on successful create (see §44).
-- Accessibility announcement: e.g. **Added Meet at café to Calendar.**
-- When all terminal: primary **Done** returns to Home and purges intake content per privacy rules.
-- Optional: **Create Another** as secondary that Goes Home without implying archive.
+On failure:
 
----
+> **Couldn't read the screenshot**
 
-## 23. Share Sheet UX (S9)
+Actions:
 
-- Extension UI: minimal: system share sheet + brief **Opening Zuvano…** if a custom view is required.
-- No understanding UI, no draft list, no EventKit in the extension.
-- Main app opens into Processing for the handed-off intake.
-- If handoff fails: Home alert **Couldn’t open that share. Try pasting the text instead.**
+- Try Again
+- Enter Text
+- Discard
+
+After successful OCR, do not keep displaying the raw screenshot in Review.
+
+The source text is sufficient.
 
 ---
 
-## 24. Image / OCR UX
+# 42. Share Sheet UX
 
-- Choose Photo / shared image → Processing **Reading the screenshot…**
-- OCR failure (S7):
-  - Title: **Couldn’t read the screenshot**
-  - Actions: **Try Again**, **Enter Text**, **Discard**
-- Manual text: TextEditor → continues as successful extraction (image discarded).
-- Do not keep showing the raw screenshot after successful OCR on Review (privacy); optional tiny “from screenshot” label is enough.
+The Share Extension is capture-only.
 
----
+Do not perform:
 
-## 25. AI understanding UX
+- understanding
+- draft generation
+- EventKit writes
 
-- Disclose on-device intelligence once, calmly, on Home or first Processing: **On-device. Your conversation stays on this iPhone.**
-- During understanding: **Understanding the conversation…**
-- Fallback path: same UI; do not say “AI unavailable” unless Retry needs it. Prefer **Couldn’t prepare actions** with Try Again.
-- Never expose: model names, tokens, confidence scores, “hallucination,” engine kind, prompt text.
-- Never present drafts as “messages from an assistant.”
+inside the extension.
 
----
+Minimal handoff:
 
-## 26. Accessibility requirements
+> **Opening Zuvano…**
 
-Design a11y into every screen (product FR / HIG Accessibility).
+Then the main app opens into Processing.
 
-### VoiceOver
+If handoff fails:
 
-- Each draft row is **one** accessibility element when possible.
-- Label pattern: **{Action kind}. {Title}. {When}. {Ambiguity or validation}. {State}.**
-- Example: **Calendar event. Meet at café near campus. Friday about 7:00 PM. Check the time. Proposal.**
-- Custom actions: **Create**, **Edit**, **Skip** / **Restore**, **Retry** as applicable.
-- Selection mode: selection state must be distinct from Created.
-- After Edit sheet dismisses, return focus to the edited row.
-- Announce create success/failure.
-
-### Traits & values
-
-- Created: selected/summary value communicates completed create, not “selected for batch.”
-- Progress: Updating trait / live region on Processing phase changes.
-- Buttons: clear traits; disabled Create must explain why in the label or hint.
-
-### Touch
-
-- Minimum **44×44 pt** targets.
-- Swipe actions are **secondary**; Create/Edit/Skip must also be available via buttons/menu for Switch Control / Full Keyboard Access.
-
-### Reading order
-
-- Header → draft list (top to bottom) → toolbar actions.
-- Source sheet: title then text.
-
-### Color independence
-
-- State always includes text and preferably symbol.
+> **Couldn't open that share. Try pasting the text instead.**
 
 ---
 
-## 27. Dynamic Type behavior
+# 43. On-device intelligence disclosure
 
-- Support all standard Dynamic Type sizes.
-- Titles wrap; prefer multi-line titles over truncation.
-- Source phrase may truncate visually; full string in accessibility value.
-- Forms stack fields vertically; DatePickers remain usable at large sizes.
-- Avoid fixed-height rows that clip content at accessibility sizes.
-- Toolbar labels may shorten at large sizes (**Create** instead of long mixed labels) while VoiceOver keeps full wording.
+Disclose calmly.
 
----
+Preferred Home copy:
 
-## 28. Light / Dark appearance
+> **On-device. Your conversation stays on this iPhone.**
 
-- First-class for both appearances.
-- Use semantic colors (`primary`, `secondary`, `tertiary`, `systemBackground`, `secondarySystemGroupedBackground`, tint).
-- Do not hard-code pure black/white except where system semantics already do.
-- Success/error use system green/red **plus** text.
-- Test Review rows on both appearances for secondary footnote contrast.
+During processing use only phase copy:
 
----
+- Reading…
+- Understanding…
+- Preparing actions…
 
-## 29. Reduce Motion
+Never expose:
 
-When Reduce Motion is enabled:
-
-- Prefer crossfade / opacity over slides and matched-geometry flourishes.
-- Disable symbol bounce / large spring travel.
-- Processing → Review: instant or short fade.
-- Do not delay Create completion on animation.
-
-Motion must never be the only signal of state change (pair with text/haptics carefully).
+- model name
+- token count
+- prompt
+- confidence score
+- engine name
+- orchestration details
+- hallucination terminology
 
 ---
 
-## 30. Reduce Transparency
+# 44. Copywriting principles
 
-- Fall back to opaque navigation/toolbars and solid grouped backgrounds.
-- Do not rely on blur to separate hierarchy.
-- Content list remains opaque in all cases.
+Voice:
 
----
+- calm
+- precise
+- direct
+- trustworthy
+- human
 
-## 31. Increase Contrast
+Avoid:
 
-- Stronger separators and borders where system increases contrast.
-- Ambiguity / validation footnotes must remain readable (avoid ultra-light gray only).
-- Provisional vs Created distinction must hold without low-contrast glass tricks.
+- “AI magic”
+- “smart”
+- “agent”
+- “we”
+- “oops”
+- “amazing”
+- “intelligent assistant”
+- model jargon
 
----
+### Core terminology
 
-## 32. Typography system
-
-| Role | Style |
+| UI term | Meaning |
 |---|---|
-| Nav title | Large or inline `navigationTitle`: **Zuvano** / **Review** / **Edit Action** |
-| Screen headline | `title2` / `title3` for empty states |
-| Draft title | `body` emphasized or `headline` |
-| Meta (when/where) | `subheadline` |
-| Footnotes / source | `footnote` |
-| Buttons | System button text styles |
+| Proposal / Proposed action | Action Draft pending creation |
+| Create | User authorizes EventKit write |
+| Skip | Reject draft |
+| Restore | Undo Skip |
+| Created | EventKit execution succeeded |
+| Couldn't create | EventKit execution failed |
+| Review | Action Review screen |
+| Source | Extracted text |
+| Discard | Cancel intake and purge |
 
-**Font:** SF system; no custom display font for MVP.  
-**Capitalization:** Sentence case for headlines and most buttons; Title Case only for short nav titles if matching system norms.
+Do not use in UI:
 
----
-
-## 33. Color system
-
-| Role | Token |
-|---|---|
-| Content background | System grouped background |
-| Row background | Secondary grouped / system |
-| Primary text | `.primary` |
-| Secondary text | `.secondary` |
-| Tint / primary actions | App accent (single calm accent; prefer system blue or a restrained brand tint; **not** neon purple/cyan AI cliché) |
-| Success | System green + **Created** text |
-| Destructive / skip discard | System red for Discard intake; Skip is not destructive red by default |
-| Warning / attention | System orange optional for missing fields; always with text |
-
-One accent. Do not rainbow-code AI states.
+- Intent
+- Confidence
+- Engine
+- Fallback
+- Pipeline
+- Orchestrator
+- ActionDraft
+- Hallucination
 
 ---
 
-## 34. Spacing system
+# 45. Canonical error copy
 
-Use system spacing rhythms:
-
-- List: default inset grouped margins.
-- Form: default Form section spacing.
-- Empty states: generous vertical padding (~24–40 pt) around symbol + text + button.
-- Footnotes: 4–8 pt below meta line.
-- Avoid custom micro-grids that fight `List`/`Form`.
-
----
-
-## 35. Corner-radius system
-
-- Prefer **system** list/form/sheet radii.
-- Custom cards (if any, discouraged): align to continuous corners ~12–16 pt.
-- Do not invent pill-heavy AI chips for every meta field.
-
----
-
-## 36. Iconography
-
-- SF Symbols only.
-- Prefer hierarchical / monochrome rendering; match text weight.
-- Avoid custom illustrated mascots for MVP.
-
----
-
-## 37. SF Symbols usage
-
-| Meaning | Suggested symbols |
-|---|---|
-| Calendar draft / created | `calendar`, `calendar.badge.checkmark` |
-| Reminder draft / created | `checklist`, `checkmark.circle` |
-| Paste | `doc.on.clipboard` |
-| Photo | `photo.on.rectangle` |
-| Share hint | `square.and.arrow.up` |
-| Processing | System `ProgressView` |
-| Ambiguity / attention | `exclamationmark.circle` (or none; prefer text) |
-| Failure | `exclamationmark.triangle` |
-| Settings | `gear` / Open Settings via UIApplication |
-| Source text | `text.alignleft` / `doc.plaintext` |
-| Skip | `xmark` |
-| Restore | `arrow.uturn.backward` |
-
-Animate symbols sparingly; respect Reduce Motion.
-
----
-
-## 38. Materials / Liquid Glass usage
-
-Follow Apple’s two-layer model:
-
-| Layer | Zuvano rule |
-|---|---|
-| **Functional** (nav bar, toolbar, sheets, system alerts) | Allow system Liquid Glass via standard components |
-| **Content** (list rows, draft content, backgrounds, empty states) | **No** Liquid Glass / `.glassEffect` / frosted draft cards |
-
-**Absolute ban**
-
-- Glass “proposal cards”
-- Glass chat bubbles
-- Glass floating FABs as the visual identity
-- Stacking custom glass on glass in content
-
-Reduce Transparency → opaque chrome. Clear glass only if ever used over rich media (not needed for MVP Review).
-
----
-
-## 39. Component patterns
-
-| Need | Component |
-|---|---|
-| Draft list | `List` inset grouped |
-| Edit fields | `Form` + system controls |
-| Empty / error | `ContentUnavailableView` |
-| Progress | `ProgressView` + text |
-| Photo | `PhotosPicker` |
-| Paste | Button reading `UIPasteboard` (with availability) |
-| Permission | Pre-alert → system alert |
-| Destructive discard | Confirmation dialog |
-| Batch select | Edit/Select mode with leading selection |
-
-Prefer semantic system controls over custom gesture-only UI.
-
----
-
-## 40. Button hierarchy
-
-| Priority | Examples | Style |
+| Situation | Title / Copy | Action |
 |---|---|---|
-| Primary | Create / Create N Ready / Done (terminal) | `.borderedProminent` or glass prominent on chrome if system default |
-| Secondary | Select, View source, Enter Text, Try Again | `.bordered` / plain |
-| Tertiary | Skip, Restore | Plain; Skip via swipe |
-| Destructive | Discard conversation / Discard intake | Destructive role |
+| OCR failure | **Couldn't read the screenshot** | Try Again · Enter Text · Discard |
+| Understanding failure | **Couldn't prepare actions** | Try Again · Discard |
+| Draft generation failure | **Couldn't prepare actions** | Try Again · Discard |
+| Invalid input | **That content can't be used** | Try something else · Discard |
+| Calendar failure | **Couldn't add to Calendar** | Retry |
+| Reminder failure | **Couldn't add to Reminders** | Retry |
+| Interrupted | **Creation was interrupted** | Retry |
+| Calendar permission | **Calendar access is off** | Open Settings |
+| Reminder permission | **Reminders access is off** | Open Settings |
+| Missing start | **Add a start time to create this event.** | Inline |
+| Partial batch | **Create 3 Ready** | Supporting: **2 need a start time.** |
 
-**One** prominent create action per view region. Do not tint every toolbar item.
-
----
-
-## 41. Sheets
-
-| Sheet | Detents | Dismiss |
-|---|---|---|
-| Edit Draft | medium/large as needed | Swipe / Cancel / Save |
-| Source Text | medium/large | Swipe / Done |
-| Permission pre-alert | Prefer compact custom view or alert-style card; keep short | Continue only |
-
-If dismissing Edit would lose unsaved field edits, confirm before discard.
+No blame, no dramatization, no vague error language.
 
 ---
 
-## 42. Alerts
+# 46. Accessibility
 
-Use alerts for:
+Accessibility is part of the visual design, not a later pass.
 
-- Discard intake (data loss)
-- Cancel processing when work would be lost
-- Rare critical failures
+## VoiceOver
 
-Do not alert for routine Created success.
+Each draft should preferably be one coherent accessibility element.
+
+Example:
+
+> **Calendar event. Meet at café near campus. Friday about 7:00 PM. Check the time. Proposal.**
+
+Available custom actions:
+
+- Create
+- Edit
+- Skip
+- Restore
+- Retry
+
+### Created
+
+Accessibility state must communicate **created**, not selected.
+
+### Processing
+
+Announce phase changes politely.
 
 ---
 
-## 43. Confirmation dialogs
+# 47. Touch targets
 
-Use confirmation dialogs / action sheets for:
+Minimum:
 
-- Discard intake
-- Optional ambiguous create confirmation (if used)
-- Dismiss remaining failed retries
+**44 × 44 pt**
 
-Keep titles specific: **Discard this conversation?** Actions: **Discard**, **Keep Reviewing**.
+Swipe actions are secondary.
+
+Create/Edit/Skip must remain accessible through explicit controls or menus for:
+
+- Switch Control
+- VoiceOver
+- Full Keyboard Access
 
 ---
 
-## 44. Haptics
+# 48. Dynamic Type
+
+Support all standard Dynamic Type sizes.
+
+Rules:
+
+- Titles wrap.
+- Draft titles wrap.
+- Never clip text to preserve a fixed-height aesthetic.
+- Forms stack naturally.
+- Toolbar labels may shorten visually at large sizes.
+- VoiceOver keeps full semantic labels.
+
+Avoid fixed-height custom cards.
+
+---
+
+# 49. Dark mode
+
+Dark mode must be deliberately designed.
+
+Use:
+
+- semantic system backgrounds
+- semantic text colors
+- system separators
+- system green/red/orange
+- Zuvano Indigo as a restrained accent
+
+The logo gradient remains a brand asset.
+
+Do not simply invert a hard-coded light design.
+
+---
+
+# 50. Reduce Motion
+
+When enabled:
+
+- replace slides with fades
+- remove large spring movement
+- remove symbol bounce
+- avoid matched-geometry flourishes
+- Processing → Review becomes fade/instant
+
+Motion must never be the only indication of state.
+
+---
+
+# 51. Reduce Transparency
+
+When enabled:
+
+- use opaque system chrome
+- remove dependency on blur
+- keep content readable
+- maintain clear hierarchy
+
+No content should depend on glass to be understandable.
+
+---
+
+# 52. Increase Contrast
+
+When enabled:
+
+- strengthen separators/borders as appropriate
+- maintain readable footnotes
+- preserve proposal/created distinction
+- never rely on low-opacity effects
+
+---
+
+# 53. Haptics
 
 | Event | Haptic |
 |---|---|
 | Successful create | Light success / soft impact |
-| Failed create | Warning / error notification haptic |
+| Failed create | Warning/error notification |
 | Skip | None or very light selection |
-| Processing complete → Review | Optional soft selection |
+| Processing complete | Optional soft selection |
 
-Never spam haptics per OCR frame or token. Always pair important haptics with accessible text feedback.
+Never spam haptics during OCR or processing.
+
+Every important haptic must have an equivalent visual/accessibility signal.
 
 ---
 
-## 45. Animation and transitions
+# 54. Animation
 
-**Purpose of motion:** causality, state change, hierarchy, continuity, not decoration.
+Motion exists to communicate causality and continuity.
 
-| Transition | Prefer |
+### Prefer
+
+| Transition | Motion |
 |---|---|
-| Processing → Review | Short shared fade / slide; Reduce Motion → fade/instant |
-| Row insert | System list insertion |
-| State change Creating → Created | Content transition / opacity |
-| Sheet present | System sheet |
+| Processing → Review | Short fade/slide |
+| Row insertion | System list animation |
+| Creating → Created | Subtle content transition |
+| Edit/source | Native sheet animation |
 
-Avoid continuous ambient motion, parallax orbs, and long staged “AI thinking” choreography.
+### Avoid
 
----
-
-## 46. Keyboard / focus behavior
-
-- Edit Draft: focus title field on appear when title empty or invalid.
-- Manual OCR text entry: focus TextEditor on appear.
-- Keyboard dismiss on Save / tap outside where appropriate.
-- Full Keyboard Access: all Create/Edit/Skip/Done reachable.
-- After sheet dismiss: restore VO/keyboard focus to the related row.
-
----
-
-## 47. Copywriting principles
-
-- Voice: calm, precise, trustworthy.
-- Tone: direct in errors; quiet in success.
-- Active voice; sentence case.
-- Avoid “we,” “oops,” “AI magic,” “smart,” “agent.”
-- Prefer **Create** over Confirm in UI.
-- Prefer **Skip** over Reject in UI (maps to `rejected`).
-- Prefer **Proposal** language over “AI output.”
-- Privacy line: **On-device. Your conversation stays on this iPhone.**
+- floating AI orbs
+- parallax
+- particle effects
+- continuous ambient animation
+- long “thinking” sequences
+- gradient morphing
+- decorative shimmer
+- excessive spring animations
 
 ---
 
-## 48. UI terminology glossary
+# 55. Button hierarchy
 
-| UI term | Meaning |
-|---|---|
-| Proposal / Proposed action | Action Draft pending create |
-| Create | User authorizes EventKit write |
-| Skip | Reject draft (`rejected`) |
-| Restore | `rejected → pending` |
-| Created | `executed` with native id |
-| Couldn’t create | Execution failed or interrupted |
-| Review | Action Review screen |
-| Source | Extracted text for this intake |
-| Discard | Cancel intake and purge |
-
-**Do not use in UI:** Intent, Confidence, Engine, Fallback, Hallucination, Pipeline, Orchestrator, ActionDraft (type name).
-
----
-
-## 49. Error copy (canonical)
-
-| Situation | Title | Description / action |
+| Priority | Examples | Treatment |
 |---|---|---|
-| OCR fail | **Couldn’t read the screenshot** | Try Again · Enter Text · Discard |
-| Understanding fail | **Couldn’t prepare actions** | Try Again · Discard |
-| Draft generation fail | **Couldn’t prepare actions** | Try Again · Discard |
-| Invalid input | **That content can’t be used** | Try something else · Discard |
-| Calendar create fail | **Couldn’t add to Calendar** | Retry |
-| Reminder create fail | **Couldn’t add to Reminders** | Retry |
-| Interrupted | **Creation was interrupted** | Retry when you’re ready |
-| Permission denied | **Calendar access is off** / **Reminders access is off** | Open Settings |
-| Missing start | **Add a start time to create this event.** | (inline) |
-| Batch partial ready | **Create 3 Ready** | **2 need a start time.** |
+| Primary | Create / Create N Ready / Done when terminal | `.borderedProminent` or native prominent system control |
+| Secondary | Select / View source / Enter Text / Try Again | `.bordered` / plain |
+| Tertiary | Skip / Restore | Plain / swipe |
+| Destructive | Discard intake | Destructive role |
+
+### Rule
+
+One prominent primary action per relevant view region.
+
+Do not make every button blue.
 
 ---
 
-## 50. Accessibility copy
+# 56. Sheets
 
-- Hints sparingly: e.g. Create button hint **Adds this item to Calendar** / **Adds this item to Reminders**.
-- Avoid hint that duplicates the label.
-- Announcements: **Added {title} to Calendar.** / **Couldn’t add {title}.**
-- Processing: **Understanding the conversation…** as the accessible value of the progress region.
-
----
-
-## 51. Visual consistency rules
-
-1. One accent color.
-2. System List/Form language everywhere possible.
-3. Proposals never wear success checkmarks.
-4. Created is the only “done” checkmark state.
-5. Ambiguity is text, not a confidence bar.
-6. Glass stays on chrome, not content.
-7. Empty and error states share the same quiet layout language.
-8. Icons from SF Symbols only; consistent weight.
-9. Margins follow system grouped lists.
-10. Light and Dark both intentional, not inverted afterthoughts.
-
----
-
-## 52. Anti-patterns: Zuvano must NOT do
-
-1. Chat transcript UI or message bubbles for drafts.
-2. Floating AI orb / glow / neon gradients as brand identity.
-3. Dashboard of stats, streaks, or “insights.”
-4. Browsable conversation archive / history inbox.
-5. Trailing checkmarks meaning “selected” on proposals.
-6. Soft **Confirm** that doesn’t say Calendar/Reminders will be written.
-7. Auto-creating events when OCR/understanding finishes.
-8. Auto-retrying EventKit after interrupt recovery.
-9. Confidence meters, token counts, model badges.
-10. Glass cards for each draft.
-11. Tab bar with Memory / Chat / Settings for MVP.
-12. Reading existing Calendar/Reminder items to “dedupe.”
-13. Implying cloud AI processing.
-14. Color-only success/failure.
-15. Done that purges pending drafts without Discard confirmation.
-16. Exposing Intent lists separate from Action Drafts.
-17. Permission Allow button on a custom pre-alert (use Continue).
-18. Third-party UI kits or illustration-heavy onboarding carousels for MVP.
-
----
-
-## 53. Visual QA checklist
-
-Before considering UI complete:
-
-### Product / trust
-
-- [ ] No draft looks Created before `executed`
-- [ ] Create copy names Calendar and/or Reminders
-- [ ] Independent draft states work in one list
-- [ ] Ambiguous ~time can create; missing start cannot
-- [ ] Interrupted draft never auto-creates
-- [ ] Done disabled until terminal (or Discard confirmed)
-- [ ] No history/archive surface
-
-### Native / visual
-
-- [ ] System List/Form/Navigation look native on iOS 26/27
-- [ ] No content-layer Liquid Glass
-- [ ] Light and Dark both reviewed
-- [ ] Increase Contrast / Reduce Transparency reviewed
-- [ ] Accent restrained; not neon-AI
-
-### Motion / haptics
-
-- [ ] Reduce Motion honored
-- [ ] Motion not required to understand state
-- [ ] Haptics paired with accessible feedback
-
-### Accessibility
-
-- [ ] VoiceOver reads each draft coherently
-- [ ] Custom actions Create/Edit/Skip available
-- [ ] Dynamic Type at largest sizes usable
-- [ ] 44 pt targets
-- [ ] Focus returns after sheets
-- [ ] Status not color-only
-- [ ] Processing phase announced
-
-### States
-
-- [ ] Home empty
-- [ ] Processing phases
-- [ ] OCR fail + manual text
-- [ ] Understanding fail
-- [ ] Nothing actionable
-- [ ] Review multi-draft
-- [ ] Edit sheet
-- [ ] Permission deny
-- [ ] Partial create success/fail
-- [ ] Share handoff into Processing
-- [ ] Discard / Done purge behavior
-
----
-
-## 54. Locked UX decisions (implementation contract)
-
-These resolve ambiguities left by product docs for UI only:
-
-1. **No Tab Bar** in MVP.
-2. **Action Review = inset grouped List** of proposals.
-3. **UI verb is Create**, not Confirm.
-4. **One create path:** validate → confirm state → permission → execute.
-5. **Batch selection uses Select mode with leading selection**; never trailing ✓ on proposals.
-6. **Skip** is the user-facing term for reject; **Restore** undoes Skip.
-7. **Done** only when intake is terminal; otherwise Discard with confirmation.
-8. **Source peek sheet** allowed for current intake only, not an archive.
-9. **Liquid Glass only via system chrome**; ban content glass.
-10. **Share Extension** shows minimal opening UI; Review always in main app.
-11. **Home** leads with one sentence + Paste + Photo + Share hint.
-12. **Confidence scores are never shown.**
-
----
-
-## 55. Unresolved / validate on device
-
-| Item | Notes |
+| Sheet | Presentation |
 |---|---|
-| Exact EventKit “Open in Calendar/Reminders” deep link behavior | Optional nicety; not required for MVP trust |
-| Share Extension custom UI vs system-only | Keep minimal; device-validate handoff timing |
-| Whether ambiguous create needs an extra dialog | Default: **no** dialog if About footnote is visible; add only if usability testing shows accidental creates |
-| App accent color final brand value | Choose one restrained system-compatible tint at visual design time |
-| Large Content Viewer / accessibility sizes for mixed toolbar labels | Shorten visually; keep full VO string |
+| Edit Draft | Medium/large as needed |
+| Source Text | Medium/large |
+| Permission explanation | Compact/native alert-like |
+
+Edit dismissal with unsaved changes requires confirmation.
 
 ---
 
-## Document history
+# 57. Alerts and confirmations
 
-| Version | Notes |
-|---|---|
-| 1.0 | Initial authoritative UI/UX instructions after product-doc alignment and iOS design review |
+Use alerts only for meaningful interruption.
+
+### Appropriate
+
+- discard intake
+- cancel processing when work would be lost
+- critical failure
+- optional ambiguous creation confirmation
+
+### Discard title
+
+> **Discard this conversation?**
+
+Actions:
+
+- Discard
+- Keep Reviewing
+
+### Ambiguous create
+
+Default behavior:
+
+**Do not interrupt with an extra confirmation if the row already clearly says “About 7:00 PM, check before creating.”**
+
+If testing shows accidental creation, use:
+
+> **Create using About 7:00 PM?**
+
+Actions:
+
+- Create
+- Edit
+- Cancel
+
+---
+
+# 58. Visual design tokens
+
+```text
+ZUVANO DESIGN SYSTEM
+────────────────────────────────
+
+BRAND
+Zuvano Indigo        #6366F1
+
+BRAND GRADIENT
+Violet               #A681FE
+Periwinkle           #7C7CFC
+Blue                 #515FFD
+
+TYPOGRAPHY
+SF System
+No custom display font
+
+BACKGROUND
+systemGroupedBackground
+secondarySystemGroupedBackground
+systemBackground
+
+TEXT
+primary
+secondary
+tertiary
+
+SEMANTIC
+Success              systemGreen
+Warning              systemOrange
+Error                systemRed
+
+SPACING
+4 / 8 / 12 / 16 / 20 / 24 / 32 / 40
+
+CUSTOM RADIUS
+12–16 pt maximum
+Prefer system radii
+
+ICONS
+SF Symbols only
+
+MATERIAL
+Native system Liquid Glass
+Functional chrome only
+
+CONTENT
+Native List / Form
+
+NAVIGATION
+NavigationStack
+
+TABS
+None
+
+PRIMARY VERB
+Create
+
+SECONDARY
+Edit / Skip / Restore / Retry
+
+DESTRUCTIVE
+Discard
+
+MOTION
+Short / causal / subtle
+
+BRAND STYLE
+Calm
+Precise
+Native
+Trustworthy
+Intelligent
+Human
+Private
+```
+
+---
+
+# 59. Anti-patterns
+
+Zuvano must **not** become:
+
+1. A chat interface.
+2. A conversation archive.
+3. An AI dashboard.
+4. A floating AI orb.
+5. A neon purple/cyan AI interface.
+6. A collection of glass proposal cards.
+7. A screen full of statistics.
+8. A confidence-score interface.
+9. A model-debug interface.
+10. A tabbed utility suite.
+11. A custom calendar browser.
+12. A duplicate-detection system.
+13. A UI that auto-creates actions.
+14. A UI that auto-retries EventKit.
+15. A UI where checkmarks mean selection and creation simultaneously.
+16. A UI that says “Confirm” when it actually writes to Calendar/Reminders.
+17. A UI that treats a proposal as created before EventKit succeeds.
+18. A color-only status system.
+19. A decorative gradient-heavy interface.
+20. A custom keyboard.
+21. A third-party UI kit.
+22. An illustration-heavy onboarding experience.
+
+---
+
+# 60. Screen-by-screen visual consistency
+
+The entire product should follow this progression:
+
+```text
+HOME
+Minimal + branded
+        ↓
+PROCESSING
+Minimal + temporal
+        ↓
+REVIEW
+Native + information-rich
+        ↓
+EDIT
+Native Form
+        ↓
+CREATED
+Quiet confirmation
+```
+
+The deeper the user goes, the more functional the UI becomes.
+
+Branding should be strongest at the entry point and increasingly subtle inside the workflow.
+
+---
+
+# 61. Visual QA checklist
+
+## Product / trust
+
+- [ ] No proposal looks Created before EventKit succeeds.
+- [ ] Create wording clearly indicates Calendar/Reminders where necessary.
+- [ ] Independent draft states work in one list.
+- [ ] Ambiguous usable values can be created.
+- [ ] Missing required Calendar start blocks Create.
+- [ ] Interrupted EventKit execution never auto-retries.
+- [ ] Done never silently destroys unresolved work.
+- [ ] No conversation archive exists.
+- [ ] No duplicate intelligence reads existing Calendar/Reminders.
+
+## Visual
+
+- [ ] Native iOS List/Form language.
+- [ ] One restrained accent: Zuvano Indigo.
+- [ ] Logo gradient is not used throughout the UI.
+- [ ] No neon AI styling.
+- [ ] No content-layer Liquid Glass.
+- [ ] System typography.
+- [ ] SF Symbols only.
+- [ ] System semantic colors.
+- [ ] Light mode reviewed.
+- [ ] Dark mode reviewed.
+- [ ] Increase Contrast reviewed.
+- [ ] Reduce Transparency reviewed.
+- [ ] Dynamic Type reviewed.
+
+## Interaction
+
+- [ ] Home supports Paste.
+- [ ] Home supports Choose Photo.
+- [ ] Home supports Enter Text.
+- [ ] Share Sheet enters Processing.
+- [ ] Processing can be cancelled safely.
+- [ ] Review supports edit.
+- [ ] Review supports skip/restore.
+- [ ] Review supports batch creation.
+- [ ] Create is explicit.
+- [ ] Created state is quiet and inline.
+- [ ] Failed creation is retryable.
+- [ ] Done is terminal.
+
+## Accessibility
+
+- [ ] VoiceOver reads each draft coherently.
+- [ ] Custom actions exist for Create/Edit/Skip/Restore/Retry where relevant.
+- [ ] State is never color-only.
+- [ ] Minimum 44 pt touch targets.
+- [ ] Dynamic Type works at large sizes.
+- [ ] Focus returns after sheets.
+- [ ] Processing phases are announced.
+- [ ] Full Keyboard Access can reach important actions.
+- [ ] Reduced Motion is respected.
+
+---
+
+# 62. Locked design decisions
+
+These are implementation contracts for the UI.
+
+1. **Native Apple × Calm Intelligence × Soft Precision** is the visual direction.
+2. Zuvano uses approximately **90% native iOS / 10% brand**.
+3. **Zuvano Indigo `#6366F1`** is the single custom application accent.
+4. The logo gradient is a **brand asset**, not the application-wide UI gradient.
+5. No neon purple/cyan AI aesthetic.
+6. No AI orb, shimmer, particle field, or decorative AI animation.
+7. No tab bar in MVP.
+8. Action Review is a **native inset grouped List**.
+9. Proposal rows do not use content-layer Liquid Glass.
+10. Liquid Glass is restricted to native functional chrome.
+11. UI verb is **Create**, not Confirm.
+12. Created is shown only after successful EventKit execution.
+13. Created uses text + symbol + system green.
+14. Proposal selection uses leading selection controls.
+15. Trailing checkmarks are reserved for Created state.
+16. Skip means reject; Restore reverses Skip.
+17. Done is only terminal; unresolved work cannot be silently purged.
+18. Source Text is a sheet for the current intake only.
+19. Edit Draft is a Form sheet.
+20. Home supports **Paste, Choose Photo, and Enter Text**.
+21. Share Sheet is capture-only and hands off to the main app.
+22. Processing is full-screen, calm, and phase-based.
+23. Confidence scores and model internals never appear.
+24. Ambiguity is expressed as human-readable text.
+25. Accessibility and Dynamic Type are first-class.
+26. Light and Dark modes are both required.
+27. Native SF Symbols only.
+28. Native semantic system colors are preferred everywhere except the single Zuvano accent.
+29. The app should feel like an Apple utility with a hint of intelligence.
+
+---
+
+# 63. Implementation guardrails for Cursor
+
+When implementing UI from this specification:
+
+### Before changing a screen
+
+Check:
+
+1. Which screen ID is being changed?
+2. Which product behavior must remain unchanged?
+3. Which state is being represented?
+4. Is the visual change consistent with the Zuvano design system?
+5. Is the component already available as a native SwiftUI control?
+6. Does the change preserve Dynamic Type and VoiceOver?
+7. Does it preserve the trust boundary?
+
+### Prefer
+
+- native SwiftUI controls
+- semantic colors
+- system typography
+- SF Symbols
+- List
+- Form
+- ContentUnavailableView
+- ProgressView
+- PhotosPicker
+- native sheets
+- native alerts
+- system materials
+- small reusable design tokens
+
+### Avoid
+
+- third-party UI libraries
+- custom navigation systems
+- custom glass effects
+- giant custom cards
+- hard-coded iPhone-specific dimensions
+- custom keyboard UI
+- decorative AI effects
+- unnecessary custom components
+
+### Critical implementation principle
+
+> **Do not redesign product behavior while implementing the visual system.**
+
+UI changes must preserve the Product → Feature → Architecture → Data Model contract.
+
+---
+
+# 64. Final design north star
+
+> ## Zuvano should feel like an Apple utility with a hint of intelligence.
+>
+> The interface should be quiet.
+>
+> The content should be clear.
+>
+> The actions should be explicit.
+>
+> The brand should be recognizable but restrained.
+>
+> The intelligence should disappear behind the result.
+>
+> And the user should always know:
+>
+> **Zuvano suggests. I decide. iOS creates.**
