@@ -149,7 +149,11 @@ enum IntentNormalizer {
         ]
 
         for (name, weekday) in weekdays where lower.contains(name) {
-            return nextWeekday(weekday, from: referenceDate, calendar: calendar)
+            let resolved = nextWeekday(weekday, from: referenceDate, calendar: calendar)
+            if lower.contains("next"), calendar.isDate(resolved, inSameDayAs: referenceDate) {
+                return calendar.date(byAdding: .day, value: 7, to: resolved)
+            }
+            return resolved
         }
 
         return nil
@@ -174,7 +178,6 @@ enum IntentNormalizer {
         calendar: Calendar
     ) -> (date: Date, ambiguous: Bool)? {
         let lower = expression.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let isAmbiguous = lower.contains("around") || lower.contains("about") || lower.contains("~")
 
         let timePattern = #/(?:around|about|at|~)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/#
         guard let match = lower.firstMatch(of: timePattern) else { return nil }
@@ -182,6 +185,7 @@ enum IntentNormalizer {
         let hourStr = String(match.1)
         let minuteStr = match.2.map(String.init) ?? "0"
         let ampm = match.3.map(String.init)
+        let isAmbiguous = lower.contains("around") || lower.contains("about") || lower.contains("~") || ampm == nil
 
         guard var hour = Int(hourStr), let minute = Int(minuteStr) else { return nil }
 

@@ -36,6 +36,13 @@ final class AppFlowCoordinator {
     private var isIngestingHandoff = false
     private var executingDraftIDs: Set<UUID> = []
     private var runningCreateOperation: Task<Void, Never>?
+    private var intakeTask: Task<Void, Never>?
+    private var intakeEpoch = 0
+    /// EventKit succeeded but SwiftData did not persist `nativeIdentifier`; Retry re-persists only.
+    private var unpersistedNativeIdentifiers: [UUID: String] = [:]
+
+    /// Test-only hook to simulate persistence failures after EventKit success.
+    var updateDraftOverride: ((ActionDraftSnapshot) async throws -> ActionDraftSnapshot)?
 
     init(modelContainer: ModelContainer) {
         let store = ActionStore(modelContainer: modelContainer)
@@ -72,14 +79,11 @@ final class AppFlowCoordinator {
 
         let pendingHandoffs = handoffStore.pendingTokens()
         if let token = pendingHandoffs.last {
-            await ingestHandoff(token: token)
-            return
+            let ingested = await ingestHandoff(token: token)
+            if ingested { return }
         }
 
-        let recovered = await pipeline.recoverSessionsOnLaunch()
-        guard let latest = recovered.first else { return }
-        activeIntake = latest
-        await resumeIntake(latest)
+        await recoverExistingSession()
     }
 
     func handleHandoffURL(_ url: URL) {
@@ -101,8 +105,9 @@ final class AppFlowCoordinator {
         dismissedFailedDraftIDs.insert(id)
     }
 
-    private func ingestHandoff(token: UUID) async {
-        guard !isIngestingHandoff else { return }
+    @discardableResult
+    private func ingestHandoff(token: UUID) async -> Bool {
+        guard !isIngestingHandoff else { return true }
         isIngestingHandoff = true
         defer { isIngestingHandoff = false }
 
@@ -110,9 +115,11 @@ final class AppFlowCoordinator {
             let source = try handoffStore.load(token: token)
             handoffStore.delete(token: token)
             await startIntake(from: source)
+            return true
         } catch {
             handoffStore.delete(token: token)
             showShareHandoffFailure()
+            return false
         }
     }
 
@@ -159,24 +166,40 @@ final class AppFlowCoordinator {
     }
 
     func startIntake(from source: Source) async {
+        await purgeSupersededIntakes()
+        beginIntakeOperation()
+        let epoch = intakeEpoch
+
         isWorking = true
         flow = .processing
         activeIntake = nil
         drafts = []
         deniedPermissionKinds = []
 
-        do {
-            let outcome = try await pipeline.startIntake(from: source)
-            applyOutcome(outcome)
-        } catch {
-            activeIntake = nil
-            drafts = []
-            flow = .home
-            alertTitle = "That content can't be used"
-            alertMessage = "Try copying the conversation again or entering the text manually."
+        let task = Task { @MainActor [self] in
+            do {
+                let outcome = try await self.pipeline.startIntake(from: source)
+                guard self.intakeEpoch == epoch else {
+                    try? await self.pipeline.discard(intakeID: outcome.snapshot.id)
+                    return
+                }
+                self.applyOutcome(outcome)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.intakeEpoch == epoch else { return }
+                self.activeIntake = nil
+                self.drafts = []
+                self.flow = .home
+                self.alertTitle = "That content can't be used"
+                self.alertMessage = "Try copying the conversation again or entering the text manually."
+            }
+            if self.intakeEpoch == epoch {
+                self.isWorking = false
+            }
         }
-
-        isWorking = false
+        intakeTask = task
+        await task.value
     }
 
     func retryFromFailure() async {
@@ -196,80 +219,118 @@ final class AppFlowCoordinator {
 
     func retryUnderstanding() async {
         guard let intakeID = activeIntake?.id else { return }
-        isWorking = true
-        flow = .processing
-
-        do {
-            let outcome = try await pipeline.retryUnderstanding(intakeID: intakeID)
-            applyOutcome(outcome)
-        } catch {
-            if let snapshot = try? await pipeline.snapshot(for: intakeID) {
-                activeIntake = snapshot
-                route(for: snapshot)
+        let epoch = beginIntakeOperation()
+        await runIntakePipelineTask { [self] in
+            self.isWorking = true
+            self.flow = .processing
+            do {
+                let outcome = try await self.pipeline.retryUnderstanding(intakeID: intakeID)
+                guard self.intakeEpoch == epoch else {
+                    try? await self.pipeline.discard(intakeID: outcome.snapshot.id)
+                    return
+                }
+                self.applyOutcome(outcome)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.intakeEpoch == epoch else { return }
+                if let snapshot = try? await self.pipeline.snapshot(for: intakeID) {
+                    self.activeIntake = snapshot
+                    self.route(for: snapshot)
+                }
+            }
+            if self.intakeEpoch == epoch {
+                self.isWorking = false
             }
         }
-
-        isWorking = false
     }
 
     func retryDraftGeneration() async {
         guard let intakeID = activeIntake?.id else { return }
-        isWorking = true
-        flow = .processing
-
-        do {
-            let outcome = try await pipeline.retryDraftGeneration(intakeID: intakeID)
-            applyOutcome(outcome)
-        } catch {
-            if let snapshot = try? await pipeline.snapshot(for: intakeID) {
-                activeIntake = snapshot
-                route(for: snapshot)
+        let epoch = beginIntakeOperation()
+        await runIntakePipelineTask { [self] in
+            self.isWorking = true
+            self.flow = .processing
+            do {
+                let outcome = try await self.pipeline.retryDraftGeneration(intakeID: intakeID)
+                guard self.intakeEpoch == epoch else {
+                    try? await self.pipeline.discard(intakeID: outcome.snapshot.id)
+                    return
+                }
+                self.applyOutcome(outcome)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.intakeEpoch == epoch else { return }
+                if let snapshot = try? await self.pipeline.snapshot(for: intakeID) {
+                    self.activeIntake = snapshot
+                    self.route(for: snapshot)
+                }
+            }
+            if self.intakeEpoch == epoch {
+                self.isWorking = false
             }
         }
-
-        isWorking = false
     }
 
     func retryExtraction() async {
         guard let intakeID = activeIntake?.id else { return }
-        isWorking = true
-        flow = .processing
-
-        do {
-            let outcome = try await pipeline.retryExtraction(intakeID: intakeID)
-            applyOutcome(outcome)
-        } catch {
-            if let snapshot = try? await pipeline.snapshot(for: intakeID) {
-                activeIntake = snapshot
-                route(for: snapshot)
+        let epoch = beginIntakeOperation()
+        await runIntakePipelineTask { [self] in
+            self.isWorking = true
+            self.flow = .processing
+            do {
+                let outcome = try await self.pipeline.retryExtraction(intakeID: intakeID)
+                guard self.intakeEpoch == epoch else {
+                    try? await self.pipeline.discard(intakeID: outcome.snapshot.id)
+                    return
+                }
+                self.applyOutcome(outcome)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.intakeEpoch == epoch else { return }
+                if let snapshot = try? await self.pipeline.snapshot(for: intakeID) {
+                    self.activeIntake = snapshot
+                    self.route(for: snapshot)
+                }
+            }
+            if self.intakeEpoch == epoch {
+                self.isWorking = false
             }
         }
-
-        isWorking = false
     }
 
     func submitManualText(_ text: String) async {
         guard let intakeID = activeIntake?.id else { return }
-        isWorking = true
-        flow = .processing
-
-        do {
-            let outcome = try await pipeline.applyManualText(intakeID: intakeID, text: text)
-            applyOutcome(outcome)
-        } catch {
-            flow = .manualTextEntry
+        let epoch = beginIntakeOperation()
+        await runIntakePipelineTask { [self] in
+            self.isWorking = true
+            self.flow = .processing
+            do {
+                let outcome = try await self.pipeline.applyManualText(intakeID: intakeID, text: text)
+                guard self.intakeEpoch == epoch else {
+                    try? await self.pipeline.discard(intakeID: outcome.snapshot.id)
+                    return
+                }
+                self.applyOutcome(outcome)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.intakeEpoch == epoch else { return }
+                self.flow = .manualTextEntry
+            }
+            if self.intakeEpoch == epoch {
+                self.isWorking = false
+            }
         }
-
-        isWorking = false
     }
 
     func discardActiveIntake() async {
-        guard let intakeID = activeIntake?.id else {
-            returnToHome()
-            return
+        beginIntakeOperation()
+        if let intakeID = activeIntake?.id {
+            try? await pipeline.discard(intakeID: intakeID)
         }
-
-        try? await pipeline.discard(intakeID: intakeID)
         returnToHome()
     }
 
@@ -340,10 +401,12 @@ final class AppFlowCoordinator {
     }
 
     func retryExecution(id: UUID) async {
-        dismissedFailedDraftIDs.remove(id)
-        guard let draft = drafts.first(where: { $0.id == id }) else { return }
-        if DraftExecutionEligibility.canRetry(draft) || canResumeExecution(draft) {
-            await executeDraft(draft)
+        await serializedCreateOperation { [self] in
+            self.dismissedFailedDraftIDs.remove(id)
+            guard let draft = self.drafts.first(where: { $0.id == id }) else { return }
+            if DraftExecutionEligibility.canRetry(draft) || self.canResumeExecution(draft) {
+                await self.executeDraft(draft)
+            }
         }
     }
 
@@ -405,7 +468,15 @@ final class AppFlowCoordinator {
         drafts = []
         deniedPermissionKinds = []
         dismissedFailedDraftIDs = []
+        isWorking = false
         flow = .home
+    }
+
+    private func recoverExistingSession() async {
+        let recovered = await pipeline.recoverSessionsOnLaunch()
+        guard let latest = recovered.first else { return }
+        activeIntake = latest
+        await resumeIntake(latest)
     }
 
     private func serializedCreateOperation(_ operation: @escaping () async -> Void) async {
@@ -472,6 +543,11 @@ final class AppFlowCoordinator {
     }
 
     private func executeDraft(_ draft: ActionDraftSnapshot) async {
+        if let nativeIdentifier = unpersistedNativeIdentifiers[draft.id] {
+            await completeUnpersistedNativeIdentifier(draftID: draft.id, nativeIdentifier: nativeIdentifier)
+            return
+        }
+
         guard beginExecutionClaim(for: draft) else { return }
         defer { endExecutionClaim(draft.id) }
 
@@ -502,13 +578,7 @@ final class AppFlowCoordinator {
         }
 
         if let nativeIdentifier = current.nativeIdentifier {
-            let executed = current.updating(
-                executionState: .executed,
-                nativeIdentifier: .some(nativeIdentifier),
-                executionError: .some(nil)
-            )
-            await persistDraft(executed)
-            announceSuccess(for: executed)
+            await finishExecutedDraft(current, nativeIdentifier: nativeIdentifier)
             return
         }
 
@@ -523,13 +593,7 @@ final class AppFlowCoordinator {
         do {
             try Task.checkCancellation()
             let result = try await executionService.execute(current)
-            let executed = current.updating(
-                executionState: .executed,
-                nativeIdentifier: .some(result.nativeIdentifier),
-                executionError: .some(nil)
-            )
-            await persistDraft(executed)
-            announceSuccess(for: executed)
+            await finishExecutedDraft(current, nativeIdentifier: result.nativeIdentifier)
         } catch {
             let reason = executionService.persistableFailureReason(
                 for: error,
@@ -578,14 +642,81 @@ final class AppFlowCoordinator {
     }
 
     private func persistDraft(_ draft: ActionDraftSnapshot) async {
+        _ = await persistDraftAndUpdate(draft)
+    }
+
+    private func persistDraftToStore(_ draft: ActionDraftSnapshot) async throws -> ActionDraftSnapshot {
+        if let updateDraftOverride {
+            return try await updateDraftOverride(draft)
+        }
+        return try await pipeline.updateDraft(draft)
+    }
+
+    @discardableResult
+    private func persistDraftAndUpdate(_ draft: ActionDraftSnapshot) async -> ActionDraftSnapshot? {
         do {
-            let updated = try await pipeline.updateDraft(draft)
+            let updated = try await persistDraftToStore(draft)
             if let index = drafts.firstIndex(where: { $0.id == updated.id }) {
                 drafts[index] = updated
             }
+            return updated
         } catch {
             alertTitle = "Couldn't save changes"
             alertMessage = "Try again."
+            return nil
+        }
+    }
+
+    private func finishExecutedDraft(
+        _ current: ActionDraftSnapshot,
+        nativeIdentifier: String
+    ) async {
+        let executed = current.updating(
+            executionState: .executed,
+            nativeIdentifier: .some(nativeIdentifier),
+            executionError: .some(nil)
+        )
+        if let persisted = await persistDraftAndUpdate(executed) {
+            unpersistedNativeIdentifiers.removeValue(forKey: current.id)
+            announceSuccess(for: persisted)
+        } else {
+            unpersistedNativeIdentifiers[current.id] = nativeIdentifier
+            let inMemory = current.updating(
+                executionState: .failed,
+                executionError: .some(.persistenceFailed)
+            )
+            if let index = drafts.firstIndex(where: { $0.id == current.id }) {
+                drafts[index] = inMemory
+            }
+        }
+    }
+
+    private func completeUnpersistedNativeIdentifier(draftID: UUID, nativeIdentifier: String) async {
+        guard let current = drafts.first(where: { $0.id == draftID }) else { return }
+        await finishExecutedDraft(current, nativeIdentifier: nativeIdentifier)
+    }
+
+    @discardableResult
+    private func beginIntakeOperation() -> Int {
+        intakeTask?.cancel()
+        intakeEpoch += 1
+        return intakeEpoch
+    }
+
+    private func runIntakePipelineTask(
+        operation: @escaping @MainActor () async -> Void
+    ) async {
+        let task = Task { @MainActor in
+            await operation()
+        }
+        intakeTask = task
+        await task.value
+    }
+
+    private func purgeSupersededIntakes() async {
+        guard let snapshots = try? await store.fetchActiveSnapshots() else { return }
+        for snapshot in snapshots {
+            try? await pipeline.discard(intakeID: snapshot.id)
         }
     }
 
@@ -614,16 +745,28 @@ final class AppFlowCoordinator {
     private func resumeIntake(_ snapshot: IntakeSnapshot) async {
         switch snapshot.processingState {
         case .understanding:
-            isWorking = true
-            flow = .processing
-            do {
-                let outcome = try await pipeline.continueUnderstanding(intakeID: snapshot.id)
-                applyOutcome(outcome)
-            } catch {
-                activeIntake = snapshot
-                route(for: snapshot)
+            let epoch = beginIntakeOperation()
+            await runIntakePipelineTask { [self] in
+                self.isWorking = true
+                self.flow = .processing
+                do {
+                    let outcome = try await self.pipeline.continueUnderstanding(intakeID: snapshot.id)
+                    guard self.intakeEpoch == epoch else {
+                        try? await self.pipeline.discard(intakeID: outcome.snapshot.id)
+                        return
+                    }
+                    self.applyOutcome(outcome)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    guard self.intakeEpoch == epoch else { return }
+                    self.activeIntake = snapshot
+                    self.route(for: snapshot)
+                }
+                if self.intakeEpoch == epoch {
+                    self.isWorking = false
+                }
             }
-            isWorking = false
         case .readyForReview:
             activeIntake = snapshot
             do {

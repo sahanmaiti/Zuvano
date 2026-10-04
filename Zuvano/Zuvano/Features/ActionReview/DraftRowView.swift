@@ -264,10 +264,33 @@ struct DraftRowView: View {
     }
 
     private var failureHeadline: String {
-        if draft.executionError == .interrupted {
-            return "Creation was interrupted. Retry when you're ready."
+        guard let error = draft.executionError else {
+            return "Couldn't create"
         }
-        return "Couldn't create"
+        switch error {
+        case .interrupted:
+            return "Creation was interrupted. Retry when you're ready."
+        case .persistenceFailed:
+            return "May already be in Calendar or Reminders. Retry to finish saving."
+        case .permissionDenied:
+            return draft.actionKind == .calendarEvent
+                ? "Calendar access is off."
+                : "Reminders access is off."
+        case .noWritableCalendar:
+            return "No calendar is available for this event."
+        case .noWritableReminderList:
+            return "No reminder list is available for this reminder."
+        case .calendarSaveFailed:
+            return "Calendar couldn't save this event."
+        case .reminderSaveFailed:
+            return "Reminders couldn't save this reminder."
+        case .calendarFailed:
+            return "Couldn't add this event to Calendar."
+        case .reminderFailed:
+            return "Couldn't add this reminder to Reminders."
+        default:
+            return "Couldn't create"
+        }
     }
 
     private var accessibilityLabel: String {

@@ -18,6 +18,8 @@ struct FoundationModelsUnderstandingEngine: UnderstandingEngine {
             Identify meetings, reminders, tasks, commitments, and follow-ups.
             Mark attribution precisely: userAction only when the user must act.
             Mark otherPerson for someone else's commitments.
+            Mark completed actions as historical.
+            Mark suggestions that are not a commitment the user must act on as hypothetical.
             Mark question, historical, hypothetical, or entityOnly when applicable.
             Preserve exact source phrases. Extract date, time, location, and person entities.
             """

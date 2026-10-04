@@ -28,7 +28,8 @@ struct AppFlowCoordinatorExecutionTests {
         id: UUID = UUID(),
         actionKind: ActionKind = .calendarEvent,
         confirmationState: ConfirmationState = .pending,
-        executionState: ExecutionState = .notStarted
+        executionState: ExecutionState = .notStarted,
+        executionError: FailureReason? = nil
     ) -> ActionDraftSnapshot {
         ActionDraftSnapshot(
             id: id,
@@ -43,8 +44,17 @@ struct AppFlowCoordinatorExecutionTests {
             ),
             confidence: .high,
             confirmationState: confirmationState,
-            executionState: executionState
+            executionState: executionState,
+            executionError: executionError
         )
+    }
+
+    private func makeCoordinatorWithPipeline(
+        pipeline: IntakePipeline,
+        store: ActionStore,
+        executionService: DraftExecutionService
+    ) -> AppFlowCoordinator {
+        AppFlowCoordinator(pipeline: pipeline, store: store, executionService: executionService)
     }
 
     @discardableResult
@@ -183,5 +193,231 @@ struct AppFlowCoordinatorExecutionTests {
         #expect(recovered[0].executionState == .failed)
         #expect(recovered[0].executionError == .interrupted)
         #expect(recovered[0].nativeIdentifier == nil)
+    }
+
+    @Test @MainActor func discardDuringProcessingIgnoresLateOutcome() async throws {
+        let container = try ModelContainer(
+            for: IntakeRecord.self, ActionDraftRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let store = ActionStore(modelContainer: container)
+        let pipeline = IntakePipeline(
+            store: store,
+            extractor: PassthroughTextExtractor(),
+            understandingEngine: SlowUnderstandingEngine(delayNanoseconds: 300_000_000)
+        )
+        let coordinator = makeCoordinatorWithPipeline(
+            pipeline: pipeline,
+            store: store,
+            executionService: DraftExecutionService(store: MockEventKitExecutionStore())
+        )
+
+        async let processing: Void = coordinator.startIntake(from: .pastedText("Remind me tomorrow."))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        await coordinator.discardActiveIntake()
+        await processing
+
+        #expect(coordinator.flow == .home)
+        #expect(coordinator.activeIntake == nil)
+        #expect(coordinator.isWorking == false)
+        let active = try await store.fetchActiveSnapshots()
+        #expect(active.isEmpty)
+    }
+
+    @Test @MainActor func failedShareHandoffRecoversExistingIntake() async throws {
+        let container = try ModelContainer(
+            for: IntakeRecord.self, ActionDraftRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let store = ActionStore(modelContainer: container)
+        let pipeline = IntakePipeline(store: store)
+
+        let previous = try await store.createIntake(sourceType: .text, imageData: nil)
+        _ = try await store.updateIntake(
+            id: previous.id,
+            processingState: .readyForReview,
+            extractedText: .some("Saved conversation.")
+        )
+
+        let handoffDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("zuvano-handoff-fail-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: handoffDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: handoffDirectory) }
+
+        let token = UUID()
+        let envelope = handoffDirectory.appendingPathComponent("\(token.uuidString).json")
+        try Data("{\"sourceType\":\"not-a-source\"}".utf8).write(to: envelope)
+
+        let coordinator = AppFlowCoordinator(
+            pipeline: pipeline,
+            store: store,
+            executionService: DraftExecutionService(store: MockEventKitExecutionStore()),
+            handoffStore: ShareHandoffStore(handoffDirectoryURL: handoffDirectory)
+        )
+
+        await coordinator.recoverOnLaunch()
+
+        #expect(coordinator.alertMessage != nil)
+        #expect(coordinator.activeIntake?.id == previous.id)
+        #expect(coordinator.activeIntake?.extractedText == "Saved conversation.")
+        #expect(coordinator.flow == .actionReview)
+    }
+
+    @Test @MainActor func secondStartPurgesFirstIntake() async throws {
+        let container = try ModelContainer(
+            for: IntakeRecord.self, ActionDraftRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let store = ActionStore(modelContainer: container)
+        let pipeline = IntakePipeline(
+            store: store,
+            extractor: PassthroughTextExtractor(),
+            understandingEngine: SlowUnderstandingEngine(delayNanoseconds: 400_000_000)
+        )
+        let coordinator = makeCoordinatorWithPipeline(
+            pipeline: pipeline,
+            store: store,
+            executionService: DraftExecutionService(store: MockEventKitExecutionStore())
+        )
+
+        async let first: Void = coordinator.startIntake(from: .pastedText("First conversation."))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        await coordinator.startIntake(from: .pastedText("Second conversation wins."))
+        await first
+
+        #expect(coordinator.activeIntake?.extractedText == "Second conversation wins.")
+        let active = try await store.fetchActiveSnapshots()
+        #expect(active.count == 1)
+        #expect(active[0].extractedText == "Second conversation wins.")
+    }
+
+    @Test @MainActor func startIntakePurgesPreviousReadyForReviewIntake() async throws {
+        let container = try ModelContainer(
+            for: IntakeRecord.self, ActionDraftRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let imageDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("zuvano-coordinator-purge-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: imageDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: imageDirectory) }
+
+        let store = ActionStore(modelContainer: container)
+        await store.setImageStoreDirectory(imageDirectory)
+
+        let pipeline = IntakePipeline(store: store)
+        let coordinator = makeCoordinatorWithPipeline(
+            pipeline: pipeline,
+            store: store,
+            executionService: DraftExecutionService(store: MockEventKitExecutionStore())
+        )
+
+        let previous = try await store.createIntake(
+            sourceType: .image,
+            imageData: Data("screenshot".utf8)
+        )
+        let imageRef = try #require(previous.temporaryImageRef)
+        _ = try await store.updateIntake(
+            id: previous.id,
+            processingState: .readyForReview,
+            extractedText: .some("Old conversation text.")
+        )
+
+        await coordinator.startIntake(from: .pastedText("New paste."))
+
+        let active = try await store.fetchActiveSnapshots()
+        #expect(active.count == 1)
+        #expect(active[0].id != previous.id)
+        #expect(active[0].extractedText == "New paste.")
+        #expect(try await store.snapshot(for: previous.id) == nil)
+        #expect(FileManager.default.fileExists(atPath: imageDirectory.appendingPathComponent(imageRef).path) == false)
+    }
+
+    @Test @MainActor func nativeIDPersistenceFailureRetryDoesNotCallEventKitAgain() async throws {
+        let mock = MockEventKitExecutionStore()
+        let service = DraftExecutionService(store: mock)
+        let (coordinator, store) = try makeCoordinator(executionService: service)
+
+        var shouldFailExecutedPersist = true
+        coordinator.updateDraftOverride = { draft in
+            if shouldFailExecutedPersist,
+               draft.executionState == .executed,
+               draft.nativeIdentifier != nil {
+                shouldFailExecutedPersist = false
+                struct PersistError: Error {}
+                throw PersistError()
+            }
+            return try await store.updateDraft(draft)
+        }
+
+        let draftID = UUID()
+        let intakeID = try await seedReview(
+            coordinator: coordinator,
+            store: store,
+            makeDrafts: { intakeID in
+                [sampleDraft(intakeID: intakeID, id: draftID, actionKind: .calendarEvent)]
+            }
+        )
+
+        await coordinator.createAllReady()
+
+        #expect(mock.saveEventCallCount == 1)
+        #expect(coordinator.lastExecutionAnnouncement == nil)
+        #expect(coordinator.drafts[0].executionError == .persistenceFailed)
+
+        await coordinator.retryExecution(id: draftID)
+
+        #expect(mock.saveEventCallCount == 1)
+        let loaded = try await store.fetchDrafts(for: intakeID)[0]
+        #expect(loaded.executionState == .executed)
+        #expect(loaded.nativeIdentifier != nil)
+        #expect(coordinator.lastExecutionAnnouncement != nil)
+    }
+
+    @Test @MainActor func overlappingCreateAndRetrySerializeEventKitSaves() async throws {
+        let mock = MockEventKitExecutionStore()
+        mock.saveEventDelayNanoseconds = 250_000_000
+        let service = DraftExecutionService(store: mock)
+        let (coordinator, store) = try makeCoordinator(executionService: service)
+
+        let pendingID = UUID()
+        let failedID = UUID()
+        _ = try await seedReview(
+            coordinator: coordinator,
+            store: store,
+            makeDrafts: { intakeID in
+                [
+                    sampleDraft(intakeID: intakeID, id: pendingID, actionKind: .calendarEvent),
+                    sampleDraft(
+                        intakeID: intakeID,
+                        id: failedID,
+                        actionKind: .calendarEvent,
+                        confirmationState: .confirmed,
+                        executionState: .failed,
+                        executionError: .calendarSaveFailed
+                    )
+                ]
+            }
+        )
+
+        async let createAll: Void = coordinator.createAllReady()
+        try await Task.sleep(nanoseconds: 20_000_000)
+        async let retry: Void = coordinator.retryExecution(id: failedID)
+        await (createAll, retry)
+
+        #expect(mock.maxConcurrentSaves == 1)
+        #expect(mock.saveEventCallCount == 2)
+    }
+}
+
+private struct SlowUnderstandingEngine: UnderstandingEngine {
+    let delayNanoseconds: UInt64
+
+    nonisolated init(delayNanoseconds: UInt64) {
+        self.delayNanoseconds = delayNanoseconds
+    }
+
+    nonisolated func understand(_ text: String) async throws -> UnderstandingResult {
+        try await Task.sleep(nanoseconds: delayNanoseconds)
+        return try await FallbackUnderstandingEngine().understand(text)
     }
 }

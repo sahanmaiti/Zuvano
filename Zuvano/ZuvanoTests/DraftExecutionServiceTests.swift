@@ -17,6 +17,8 @@ final class MockEventKitExecutionStore: EventKitExecutionStore {
     private(set) var saveEventCallCount = 0
     private(set) var saveReminderCallCount = 0
     private(set) var reconnectCount = 0
+    private(set) var maxConcurrentSaves = 0
+    private var inFlightSaves = 0
 
     private var preparedEventAuthorization: EKAuthorizationStatus = .notDetermined
     private var preparedReminderAuthorization: EKAuthorizationStatus = .notDetermined
@@ -127,6 +129,8 @@ final class MockEventKitExecutionStore: EventKitExecutionStore {
         notes: String?,
         calendarIdentifier: String
     ) async throws -> String {
+        beginSave()
+        defer { endSave() }
         saveEventCallCount += 1
         if saveEventDelayNanoseconds > 0 {
             try await Task.sleep(nanoseconds: saveEventDelayNanoseconds)
@@ -143,11 +147,22 @@ final class MockEventKitExecutionStore: EventKitExecutionStore {
         notes: String?,
         calendarIdentifier: String
     ) async throws -> String {
+        beginSave()
+        defer { endSave() }
         saveReminderCallCount += 1
         if let saveReminderError {
             throw saveReminderError
         }
         return "reminder-\(calendarIdentifier)"
+    }
+
+    private func beginSave() {
+        inFlightSaves += 1
+        maxConcurrentSaves = max(maxConcurrentSaves, inFlightSaves)
+    }
+
+    private func endSave() {
+        inFlightSaves -= 1
     }
 }
 

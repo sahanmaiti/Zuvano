@@ -1,4 +1,5 @@
 import Foundation
+import os
 import UIKit
 import Vision
 
@@ -25,10 +26,21 @@ struct VisionTextExtractor: TextExtracting {
             throw ExtractionError.invalidImage
         }
 
+        let resumeGate = OSAllocatedUnfairLock(initialState: false)
         return try await withCheckedThrowingContinuation { continuation in
+            let resumeOnce: (Result<ExtractedText, Error>) -> Void = { result in
+                let shouldResume = resumeGate.withLock { resumed in
+                    if resumed { return false }
+                    resumed = true
+                    return true
+                }
+                guard shouldResume else { return }
+                continuation.resume(with: result)
+            }
+
             let request = VNRecognizeTextRequest { request, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    resumeOnce(.failure(error))
                     return
                 }
 
@@ -39,7 +51,7 @@ struct VisionTextExtractor: TextExtracting {
                 let text = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
 
                 guard !text.isEmpty else {
-                    continuation.resume(throwing: ExtractionError.emptyResult)
+                    resumeOnce(.failure(ExtractionError.emptyResult))
                     return
                 }
 
@@ -50,13 +62,13 @@ struct VisionTextExtractor: TextExtracting {
                     ? nil
                     : Double(confidences.reduce(0, +)) / Double(confidences.count)
 
-                continuation.resume(
-                    returning: ExtractedText(
+                resumeOnce(.success(
+                    ExtractedText(
                         text: text,
                         method: .ocr,
                         ocrConfidence: averageConfidence
                     )
-                )
+                ))
             }
 
             request.recognitionLevel = .accurate
@@ -66,7 +78,7 @@ struct VisionTextExtractor: TextExtracting {
             do {
                 try handler.perform([request])
             } catch {
-                continuation.resume(throwing: error)
+                resumeOnce(.failure(error))
             }
         }
     }

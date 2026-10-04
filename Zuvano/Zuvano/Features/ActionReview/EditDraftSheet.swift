@@ -124,9 +124,34 @@ struct EditDraftSheet: View {
             || location != (draft.location ?? "")
             || person != (draft.person ?? "")
             || notes != (draft.notes ?? "")
+            || scheduleChanged
+    }
+
+    private var scheduleChanged: Bool {
+        if actionKind == .calendarEvent {
+            let originalHasStart = draft.when?.startDate != nil
+            if hasStartDate != originalHasStart { return true }
+            if hasStartDate, let originalStart = draft.when?.startDate, startDate != originalStart {
+                return true
+            }
+            let originalHasEnd = draft.when?.endDate != nil
+            if hasEndDate != originalHasEnd { return true }
+            if hasEndDate, let originalEnd = draft.when?.endDate, endDate != originalEnd {
+                return true
+            }
+            return false
+        }
+
+        let originalHasDue = draft.when?.startDate != nil
+        if hasDueDate != originalHasDue { return true }
+        if hasDueDate, let originalDue = draft.when?.startDate, dueDate != originalDue {
+            return true
+        }
+        return false
     }
 
     private func save() {
+        let keepAmbiguous = !scheduleChanged && isAmbiguous
         let when: ActionDateTime?
         if actionKind == .calendarEvent {
             when = hasStartDate
@@ -134,23 +159,21 @@ struct EditDraftSheet: View {
                     rawExpression: draft.when?.rawExpression ?? "",
                     startDate: startDate,
                     endDate: hasEndDate ? endDate : nil,
-                    ambiguous: isAmbiguous
+                    ambiguous: keepAmbiguous
                 )
                 : ActionDateTime(
                     rawExpression: draft.when?.rawExpression ?? "",
-                    ambiguous: isAmbiguous
+                    ambiguous: keepAmbiguous
                 )
         } else {
             when = hasDueDate
                 ? ActionDateTime(
                     rawExpression: draft.when?.rawExpression ?? "",
                     startDate: dueDate,
-                    ambiguous: isAmbiguous
+                    ambiguous: keepAmbiguous
                 )
                 : nil
         }
-
-        let resolvedAmbiguous = isAmbiguous && !(hasStartDate || hasDueDate)
 
         let updated = ActionDraftSnapshot(
             id: draft.id,
@@ -164,7 +187,7 @@ struct EditDraftSheet: View {
             person: person.isEmpty ? nil : person,
             notes: notes.isEmpty ? nil : notes,
             confidence: draft.confidence,
-            ambiguous: resolvedAmbiguous,
+            ambiguous: keepAmbiguous,
             confirmationState: draft.confirmationState,
             executionState: draft.executionState,
             nativeIdentifier: draft.nativeIdentifier,
