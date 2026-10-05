@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 final class ShareViewController: UIViewController {
     private let statusLabel = UILabel()
+    private var didResolveOpen = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,15 +37,53 @@ final class ShareViewController: UIViewController {
 
         do {
             let result = try await writeHandoff(from: extensionContext)
-            let opened = await extensionContext.open(result.openURL)
-            if opened {
-                finish()
-            } else {
-                showHandoffFailure()
-            }
+            openContainingApp(with: result.openURL)
         } catch {
             showHandoffFailure()
         }
+    }
+
+    @MainActor
+    private func openContainingApp(with url: URL) {
+        guard let application = applicationFromResponderChain() else {
+            showHandoffFailure()
+            return
+        }
+
+        application.open(url, options: [:]) { [weak self] success in
+            Task { @MainActor in
+                self?.resolveOpen(success: success)
+            }
+        }
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            self?.resolveOpen(success: false)
+        }
+    }
+
+    @MainActor
+    private func resolveOpen(success: Bool) {
+        guard !didResolveOpen else { return }
+        didResolveOpen = true
+
+        if success {
+            finish()
+        } else {
+            showHandoffFailure()
+        }
+    }
+
+    @MainActor
+    private func applicationFromResponderChain() -> UIApplication? {
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let application = current as? UIApplication {
+                return application
+            }
+            responder = current.next
+        }
+        return nil
     }
 
     @MainActor
